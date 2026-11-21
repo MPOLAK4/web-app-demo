@@ -10,7 +10,8 @@ this repo only holds the README that links to them.
   same step. Do not hand over an app without tests.
 - Keep all tests in a top-level `tests/` folder, separate from the app code, so
   they are easy to leave out of a release.
-- Use the standard test tool for the language (for Python, `pytest`). Run the
+- Use the standard test tool for the language (for Python, the standard-library
+  `unittest`; run `python -m unittest discover -s tests -v`). Run the
   tests before saying a change is done, and show me the result.
 - Explain what each test checks and why, so I can learn to write them myself.
 
