@@ -15,6 +15,28 @@ check() only reads the document; it never changes it.
 import re
 
 
+# Every code check() can emit, with its severity and a one-line rule. The
+# authoring guide (spec.py) is generated from this table, and a test makes sure
+# check() never emits a code that is missing here.
+RULES = {
+    "no-initial": ("error", "'initial' must name one of the states."),
+    "unknown-state": ("error", "every transition's source and target must be an existing state."),
+    "unreachable-state": ("warning", "every state should be reachable from the initial state."),
+    "dead-end": ("error", "a state with no outgoing transition must be marked final."),
+    "nondeterministic": ("error", "two transitions from one state on one event need different guards."),
+    "unguarded-overlap": ("warning", "if two transitions share a source and event, give both a guard."),
+    "dead-control": ("error", "a block that raises an event needs a transition from its state for it."),
+    "no-trigger": ("error", "a transition's event (unless it starts with 'sys:') must be raised by "
+                            "a block in its source state."),
+    "button-without-event": ("warning", "a button must raise an event."),
+    "overlap": ("warning", "blocks on one screen must not overlap (a container may fully hold others)."),
+    "out-of-canvas": ("warning", "blocks must lie fully inside the canvas."),
+    "duplicate-info": ("warning", "no two blocks on one screen may carry the same info key."),
+    "duplicate-label": ("warning", "no two blocks on one screen may have the same label."),
+    "missing-info": ("warning", "every block except a container needs info keys or a note."),
+}
+
+
 def _finding(severity, code, message, state=None, blocks=()):
     return {"severity": severity, "code": code, "state": state,
             "blocks": list(blocks), "message": message}
