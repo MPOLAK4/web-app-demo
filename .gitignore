@@ -6,3 +6,6 @@
 node_modules/
 __pycache__/
 *.pyc
+
+# The working wireframe the server edits by default (user data, not source)
+wireframe.json
