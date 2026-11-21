@@ -1,0 +1,2 @@
+# Tests stay in git but are left out of release archives (git archive).
+tests/ export-ignore
