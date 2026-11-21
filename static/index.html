@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wireframe editor</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <h1>Wireframe editor</h1>
+    <label>Name <input id="doc-name"></label>
+    <label>Canvas <input id="doc-width" type="number" min="1"> &times; <input id="doc-height" type="number" min="1"></label>
+    <span class="spacer"></span>
+    <button id="btn-spec-coder">Spec for coder</button>
+    <button id="btn-spec-image">Spec for image AI</button>
+    <button id="btn-guide">AI guide</button>
+    <button id="btn-import">Import JSON</button>
+  </header>
+
+  <div id="status" role="status"></div>
+
+  <main>
+    <aside id="states-panel">
+      <h2>Screens (states)</h2>
+      <ul id="state-list"></ul>
+      <form id="add-state-form">
+        <input id="new-state-title" placeholder="New screen title" required>
+        <button>Add</button>
+      </form>
+    </aside>
+
+    <section id="center">
+      <div id="palette"></div>
+      <div id="canvas-wrap"><div id="canvas"></div></div>
+    </section>
+
+    <aside id="right">
+      <section>
+        <h2>Selected block</h2>
+        <div id="inspector"><p class="hint">Click a block to edit it.</p></div>
+      </section>
+      <section>
+        <h2>Transitions for this screen</h2>
+        <div id="transitions"></div>
+      </section>
+      <section>
+        <h2>Problems <span id="findings-count"></span></h2>
+        <ul id="findings"></ul>
+      </section>
+    </aside>
+  </main>
+
+  <dialog id="viewer">
+    <h2 id="viewer-title"></h2>
+    <textarea id="viewer-text" readonly rows="24" cols="90"></textarea>
+    <div class="row"><button id="viewer-copy">Copy</button><button id="viewer-close">Close</button></div>
+  </dialog>
+
+  <dialog id="importer">
+    <h2>Import a wireframe (replaces the current one)</h2>
+    <p class="hint">Paste JSON written by an AI following the guide. It is checked first; if it is invalid nothing changes.</p>
+    <textarea id="import-text" rows="20" cols="90"></textarea>
+    <ul id="import-errors" class="errors"></ul>
+    <div class="row"><button id="import-go">Import</button><button id="import-close">Cancel</button></div>
+  </dialog>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
