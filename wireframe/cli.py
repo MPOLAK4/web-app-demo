@@ -6,6 +6,7 @@
     python -m wireframe export FILE [--mode coder|image]
     python -m wireframe guide
     python -m wireframe op FILE '{"op": "add_block", ...}'
+    python -m wireframe walk FILE [EVENT[=TRANSITION_ID] ...]
 
 Exit codes: 0 success, 1 a problem was found or the command failed.
 """
@@ -15,7 +16,7 @@ import json
 import os
 import sys
 
-from . import checks, model, ops, spec
+from . import checks, model, ops, play, spec
 from .example import example_wireframe
 
 
@@ -48,7 +49,47 @@ def _build_parser():
     p = sub.add_parser("op", help="apply one edit, given as JSON, to the file (R1)")
     p.add_argument("file")
     p.add_argument("op", help='e.g. \'{"op": "delete_block", "state": "cart", "id": "b1"}\'')
+
+    p = sub.add_parser("walk", help="walk the wireframe like a real UI, one event at a time (R9)")
+    p.add_argument("file")
+    p.add_argument("events", nargs="*", metavar="EVENT[=TRANSITION_ID]",
+                   help="events to raise in order; add =ID to pick one of several guarded transitions")
     return parser
+
+
+def _describe_screen(doc, state_id):
+    scr = play.screen(doc, state_id)
+    print(f"Screen {scr['state']}: {scr['title']}" + (" (final)" if scr["final"] else ""))
+    for b in scr["blocks"]:
+        label = f' "{b["label"]}"' if b["label"] else ""
+        do = f" -> raises {b['event']}" if b["event"] and not b.get("disabled") else ""
+        print(f"  {b['type']}{label}{do}")
+    if scr["events"]:
+        print("  Events you can use: " + ", ".join(scr["events"]))
+    if scr["system_events"]:
+        print("  System events: " + ", ".join(scr["system_events"]))
+
+
+def _walk(doc, tokens):
+    """Returns the exit code. Prints each step; never writes the file."""
+    here = doc["initial"]
+    _describe_screen(doc, here)
+    for token in tokens:
+        event, _, choice = token.partition("=")
+        result = play.step(doc, here, event, choice or None)
+        if result["status"] == "stuck":
+            print(f"Stuck: nothing on '{here}' handles '{event}'.")
+            return 1
+        if result["status"] == "choose":
+            print(f"'{event}' on '{here}' could go several ways; repeat it as {event}=ID:")
+            for o in result["options"]:
+                print(f"  {o['transition']}: if {o['guard'] or '(no guard)'} -> {o['target']}")
+            return 1
+        print(f"{here} --{event}--> {result['state']}")
+        here = result["state"]
+        _describe_screen(doc, here)
+    print(f"Now on: {here}" + (" (final)" if play.screen(doc, here)["final"] else ""))
+    return 0
 
 
 def main(argv=None):
@@ -78,6 +119,8 @@ def main(argv=None):
                 return _fail([f"the op is not valid JSON: {exc}"])
             model.save(ops.apply_op(model.load(args.file), op), args.file)
             print("ok")
+        elif args.command == "walk":
+            return _walk(model.load(args.file), args.events)
     except model.WireframeError as exc:
         return _fail(exc.errors)
     return 0
