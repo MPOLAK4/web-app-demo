@@ -29,6 +29,12 @@ corners, shift-click to select several blocks, Duplicate and stacking buttons, a
 a **Play** button that lets you click through the flow (Back, Restart, path log;
 it never changes the file).
 
+Round 3 adds: a **debug / live** switch beside Play. In debug a block shows its
+`{{key}}` tokens as written; in live it shows sample text from the "Sample data"
+panel (a key with no sample gets an automatic one, `cart.total` -> "Cart total").
+"Save HTML" and "Save SVG" download a picture of the screen you are on, in the
+chosen mode. Your stored text is never changed by the switch.
+
 ## Headless use (no browser)
 
     python -m wireframe new my.json --example     # a 3-screen checkout example
@@ -39,6 +45,11 @@ it never changes the file).
     python -m wireframe op my.json '{"op": "add_state", "title": "Receipt"}'
 
     python -m wireframe walk my.json go back      # follow events like a user; EVENT=ID picks a guarded option
+    python -m wireframe render my.json --state cart --format html --data live --out cart.html
+    python -m wireframe render my.json --after go --after back    # screen reached after events (like walk)
+    python -m wireframe export my.json --mode image --data live
+
+In the browser the same picture is at `/api/render?state=ID&format=svg|html&data=debug|live`.
 
 The browser and these commands edit the same JSON file with the same code
 ([decision 0001](docs/decisions/0001-one-apply-op-for-every-edit.md)).
@@ -63,6 +74,6 @@ the browser cannot be unit-tested this way; try them by hand.
 | `.gitattributes` | Keeps `tests/` out of release archives (`git archive`). |
 | `server.py` | The small local Python server (standard library only): JSON API plus the static files. |
 | `static/` | The browser editor: `index.html`, `style.css`, `app.js`. |
-| `wireframe/` | The Python package: `model.py` (data and validation), `ops.py` (edits), `checks.py` (R4/R5 checks), `spec.py` (exports and AI guide), `cli.py` (command line), `example.py`. |
+| `wireframe/` | The Python package: `model.py` (data and validation), `ops.py` (edits), `checks.py` (R4/R5 checks), `spec.py` (exports and AI guide), `data.py` (standins), `render.py` (SVG/HTML files), `play.py` (Play logic), `cli.py` (command line), `example.py`. |
 | `docs/decisions/` | Decision records, one per choice that had real alternatives. |
 | `tests/` | Unit tests; they name the requirement IDs they check. Not part of a release. |
