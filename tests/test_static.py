@@ -57,7 +57,7 @@ class EditorFilesTests(unittest.TestCase):
 
     def test_R1_block_types_offered_match_the_model(self):
         from wireframe import model
-        listed = re.search(r"BLOCK_TYPES = \[(.*?)\]", read("app.js")).group(1)
+        listed = re.search(r"BLOCK_TYPES = \[(.*?)\];", read("app.js"), re.S).group(1)
         self.assertEqual(set(re.findall(r'"(\w+)"', listed)), set(model.BLOCK_TYPES))
 
     @unittest.skipUnless(shutil.which("node"), "Node.js is not installed")
