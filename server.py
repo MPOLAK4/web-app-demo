@@ -10,11 +10,14 @@ API (JSON unless noted):
     PUT  /api/wireframe        replace it (an AI's proposal); 400 + errors if invalid
     POST /api/op               apply one edit, e.g. {"op": "add_block", ...}
     GET  /api/check            {"findings": [...], "has_errors": bool}
-    GET  /api/spec?mode=coder  spec sheet as Markdown ("image" for image generators)
+    GET  /api/spec?mode=coder  spec sheet as Markdown ("image" for image generators; data=live)
     GET  /api/guide            the AI authoring guide as Markdown
     GET  /api/play?state=ID    what a user sees on a screen (default: the first)
     POST /api/play             {"state", "event", "choice"?} -> where the event leads; read-only
     GET  /api/resolved         "stateId/blockId" -> the block's full resolved style
+    GET  /api/lines?state=ID&data=debug|live   "blockId" -> the text lines the block shows
+    GET  /api/render?state=ID | after=EVENT...&format=svg|html&data=&download=1
+                               a picture file of a screen (read-only)
 Everything else is a static file from static/.
 
 Safety: this tool has no login, so it only listens on 127.0.0.1, only accepts
@@ -30,7 +33,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlsplit
 
-from wireframe import checks, model, ops, play, spec, styles
+from wireframe import checks, data, model, ops, play, render, spec, styles
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MAX_BODY = 1_000_000  # bytes; a wireframe is a few KB, so this is generous
@@ -61,9 +64,11 @@ def make_server(path, host="127.0.0.1", port=8000, static_dir=None, quiet=False)
             if not quiet:
                 super().log_message(fmt, *args)
 
-        def send_bytes(self, status, body, content_type):
+        def send_bytes(self, status, body, content_type, extra_headers=()):
             self.send_response(status)
             self.send_header("Content-Type", content_type)
+            for name, value in extra_headers:
+                self.send_header(name, value)
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "no-store")
             self.end_headers()
@@ -156,15 +161,52 @@ def make_server(path, host="127.0.0.1", port=8000, static_dir=None, quiet=False)
                     return self.send_json(200, {"findings": findings,
                                                 "has_errors": checks.has_errors(findings)})
                 if route == ("GET", "/api/spec"):
-                    mode = parse_qs(url.query).get("mode", ["coder"])[0]
+                    query = parse_qs(url.query)
+                    mode = query.get("mode", ["coder"])[0]
                     with lock:
-                        text = spec.export_spec(model.load_or_create(path), mode)
+                        text = spec.export_spec(model.load_or_create(path), mode,
+                                                query.get("data", ["debug"])[0])
                     return self.send_bytes(200, text.encode("utf-8"), "text/markdown; charset=utf-8")
                 if route == ("GET", "/api/play"):
                     with lock:
                         doc = model.load_or_create(path)
-                    state_id = parse_qs(url.query).get("state", [doc["initial"]])[0]
-                    return self.send_json(200, play.screen(doc, state_id))
+                    query = parse_qs(url.query)
+                    mode = query.get("data", ["debug"])[0]
+                    data.check_mode(mode)
+                    scr = play.screen(doc, query.get("state", [doc["initial"]])[0])
+                    for b in scr["blocks"]:
+                        b["lines"] = render.content_lines(doc, b, mode)
+                    return self.send_json(200, scr)
+                if route == ("GET", "/api/lines"):
+                    with lock:
+                        doc = model.load_or_create(path)
+                    query = parse_qs(url.query)
+                    mode = query.get("data", ["debug"])[0]
+                    data.check_mode(mode)
+                    wanted = query.get("state", [doc["initial"]])[0]
+                    for st in doc["states"]:
+                        if st["id"] == wanted:
+                            return self.send_json(200, {b["id"]: render.content_lines(doc, b, mode)
+                                                        for b in st["blocks"]})
+                    raise model.WireframeError(f"no state with id '{wanted}'")
+                if route == ("GET", "/api/render"):
+                    with lock:
+                        doc = model.load_or_create(path)
+                    query = parse_qs(url.query)
+                    if "state" in query and "after" in query:
+                        raise model.WireframeError("use state or after, not both")
+                    state_id = query["state"][0] if "state" in query else play.follow(doc, query.get("after", []))
+                    fmt = query.get("format", ["svg"])[0]
+                    text = render.render_screen(doc, state_id, fmt, query.get("data", ["debug"])[0])
+                    # No script, no network: if a label ever held markup, the browser still would not run it.
+                    headers = [("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; "
+                                                           "img-src data:"),
+                               ("X-Content-Type-Options", "nosniff")]
+                    if query.get("download", [""])[0] == "1":
+                        stem = "".join(c if c.isalnum() or c in "-_" else "-" for c in f"{doc['name']}-{state_id}")
+                        headers.append(("Content-Disposition", f'attachment; filename="{stem}.{fmt}"'))
+                    ctype = "image/svg+xml" if fmt == "svg" else "text/html; charset=utf-8"
+                    return self.send_bytes(200, text.encode("utf-8"), ctype, headers)
                 if route == ("POST", "/api/play"):
                     body = self.read_json_body()
                     if body is None:
@@ -192,7 +234,7 @@ def make_server(path, host="127.0.0.1", port=8000, static_dir=None, quiet=False)
             if url.path.startswith("/api/"):
                 self.drain_body()      # we are about to refuse; do not leave a body unread
                 known = {"/api/wireframe", "/api/op", "/api/check", "/api/spec", "/api/guide",
-                         "/api/play", "/api/resolved"}
+                         "/api/play", "/api/resolved", "/api/lines", "/api/render"}
                 if url.path in known:
                     return self.send_errors(405, [f"{method} is not allowed on {url.path}"])
                 return self.send_errors(404, [f"no such endpoint {url.path}"])
