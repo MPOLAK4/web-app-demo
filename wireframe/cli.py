@@ -167,13 +167,7 @@ def _render(args):
     if args.state and args.after:
         return _fail(["use --state or --after, not both"])
     state_id = args.state or play.follow(doc, args.after or [])
-    text = render.render_screen(doc, state_id, args.format, args.data)
-    if args.out:
-        with open(args.out, "w", encoding="utf-8", newline="\n") as f:
-            f.write(text)
-        print(f"Wrote {args.out}")
-    else:
-        print(text, end="")
+    _write_or_print(render.render_screen(doc, state_id, args.format, args.data), args.out)
     return 0
 
 
