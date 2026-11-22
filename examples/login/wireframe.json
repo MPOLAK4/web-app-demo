@@ -1,0 +1,232 @@
+{
+  "name": "Login",
+  "canvas": {
+    "width": 390,
+    "height": 844
+  },
+  "initial": "login",
+  "styles": {
+    "heading": {
+      "font_size": 28,
+      "font_weight": "bold",
+      "text_color": "#1a2b4c"
+    },
+    "field": {
+      "fill": "#ffffff",
+      "border_color": "#c9ced8",
+      "border_width": 1,
+      "radius": 6
+    },
+    "primary": {
+      "fill": "#2a6cf0",
+      "text_color": "#ffffff",
+      "radius": 8,
+      "align": "center"
+    },
+    "body": {
+      "text_color": "#333333"
+    }
+  },
+  "data": {
+    "user.name": "Sam Rivera",
+    "user.email": "sam@example.com",
+    "user.last_visit": "Nov 20"
+  },
+  "states": [
+    {
+      "id": "login",
+      "title": "Sign in",
+      "final": false,
+      "blocks": [
+        {
+          "id": "title",
+          "type": "heading",
+          "x": 20,
+          "y": 60,
+          "w": 350,
+          "h": 40,
+          "label": "Welcome",
+          "info": [
+            "login.title"
+          ],
+          "note": "",
+          "event": "",
+          "style": "heading"
+        },
+        {
+          "id": "email",
+          "type": "input",
+          "x": 20,
+          "y": 140,
+          "w": 350,
+          "h": 44,
+          "label": "Email",
+          "info": [
+            "login.email"
+          ],
+          "note": "",
+          "event": "",
+          "style": "field",
+          "placeholder": "you@example.com"
+        },
+        {
+          "id": "password",
+          "type": "input",
+          "x": 20,
+          "y": 200,
+          "w": 350,
+          "h": 44,
+          "label": "Password",
+          "info": [
+            "login.password"
+          ],
+          "note": "",
+          "event": "",
+          "style": "field"
+        },
+        {
+          "id": "remember",
+          "type": "checkbox",
+          "x": 20,
+          "y": 260,
+          "w": 350,
+          "h": 32,
+          "label": "Keep me signed in",
+          "info": [
+            "login.remember"
+          ],
+          "note": "",
+          "event": "",
+          "style": "field"
+        },
+        {
+          "id": "submit",
+          "type": "button",
+          "x": 20,
+          "y": 320,
+          "w": 350,
+          "h": 48,
+          "label": "Sign in",
+          "info": [
+            "action.submit"
+          ],
+          "note": "Two outcomes: see the two guarded transitions",
+          "event": "submit",
+          "style": "primary"
+        }
+      ]
+    },
+    {
+      "id": "failed",
+      "title": "Sign-in failed",
+      "final": false,
+      "blocks": [
+        {
+          "id": "title",
+          "type": "heading",
+          "x": 20,
+          "y": 60,
+          "w": 350,
+          "h": 40,
+          "label": "Sign-in failed",
+          "info": [
+            "failed.title"
+          ],
+          "note": "",
+          "event": "",
+          "style": "heading"
+        },
+        {
+          "id": "message",
+          "type": "text",
+          "x": 20,
+          "y": 120,
+          "w": 350,
+          "h": 60,
+          "label": "We could not sign {{user.email}} in.",
+          "info": [
+            "failed.message"
+          ],
+          "note": "",
+          "event": "",
+          "style": "body"
+        },
+        {
+          "id": "retry",
+          "type": "button",
+          "x": 20,
+          "y": 200,
+          "w": 350,
+          "h": 48,
+          "label": "Try again",
+          "info": [
+            "action.retry"
+          ],
+          "note": "",
+          "event": "retry",
+          "style": "primary"
+        }
+      ]
+    },
+    {
+      "id": "home",
+      "title": "Home",
+      "final": true,
+      "blocks": [
+        {
+          "id": "title",
+          "type": "heading",
+          "x": 20,
+          "y": 60,
+          "w": 350,
+          "h": 40,
+          "label": "Welcome back, {{user.name}}",
+          "info": [
+            "home.title"
+          ],
+          "note": "",
+          "event": "",
+          "style": "heading"
+        },
+        {
+          "id": "visit",
+          "type": "text",
+          "x": 20,
+          "y": 120,
+          "w": 350,
+          "h": 40,
+          "label": "Last visit: {{user.last_visit}}",
+          "info": [
+            "home.last_visit"
+          ],
+          "note": "",
+          "event": "",
+          "style": "body"
+        }
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "id": "t1",
+      "source": "login",
+      "target": "home",
+      "event": "submit",
+      "guard": "credentials accepted"
+    },
+    {
+      "id": "t2",
+      "source": "login",
+      "target": "failed",
+      "event": "submit",
+      "guard": "credentials rejected"
+    },
+    {
+      "id": "t3",
+      "source": "failed",
+      "target": "login",
+      "event": "retry",
+      "guard": ""
+    }
+  ]
+}

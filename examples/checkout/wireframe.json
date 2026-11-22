@@ -1,0 +1,222 @@
+{
+  "name": "Checkout",
+  "canvas": {
+    "width": 800,
+    "height": 600
+  },
+  "initial": "cart",
+  "styles": {
+    "heading": {
+      "font_size": 28,
+      "text_color": "#1a2b4c"
+    },
+    "primary": {
+      "fill": "#2a6cf0",
+      "text_color": "#ffffff",
+      "radius": 8
+    },
+    "body": {
+      "fill": "#f7f8fa",
+      "border_color": "#c9ced8"
+    }
+  },
+  "data": {
+    "cart.total": "$42.00"
+  },
+  "states": [
+    {
+      "id": "cart",
+      "title": "Cart",
+      "final": false,
+      "blocks": [
+        {
+          "id": "title",
+          "type": "heading",
+          "x": 20,
+          "y": 20,
+          "w": 400,
+          "h": 40,
+          "label": "Your cart",
+          "info": [
+            "cart.title"
+          ],
+          "note": "",
+          "event": "",
+          "style": "heading"
+        },
+        {
+          "id": "items",
+          "type": "list",
+          "x": 20,
+          "y": 80,
+          "w": 500,
+          "h": 300,
+          "label": "Items",
+          "info": [
+            "cart.items"
+          ],
+          "note": "One row per product: name, quantity, price",
+          "event": "",
+          "style": "body"
+        },
+        {
+          "id": "total",
+          "type": "text",
+          "x": 540,
+          "y": 80,
+          "w": 240,
+          "h": 40,
+          "label": "Total: {{cart.total}}",
+          "info": [
+            "cart.total"
+          ],
+          "note": "",
+          "event": "",
+          "style": "body"
+        },
+        {
+          "id": "checkout",
+          "type": "button",
+          "x": 540,
+          "y": 520,
+          "w": 240,
+          "h": 48,
+          "label": "Checkout",
+          "info": [
+            "action.checkout"
+          ],
+          "note": "",
+          "event": "checkout",
+          "style": "primary"
+        }
+      ]
+    },
+    {
+      "id": "payment",
+      "title": "Payment",
+      "final": false,
+      "blocks": [
+        {
+          "id": "title",
+          "type": "heading",
+          "x": 20,
+          "y": 20,
+          "w": 400,
+          "h": 40,
+          "label": "Payment",
+          "info": [
+            "payment.title"
+          ],
+          "note": "",
+          "event": "",
+          "style": "heading"
+        },
+        {
+          "id": "card",
+          "type": "input",
+          "x": 20,
+          "y": 80,
+          "w": 400,
+          "h": 40,
+          "label": "Card number",
+          "info": [
+            "payment.card_number"
+          ],
+          "note": "",
+          "event": "",
+          "style": "body"
+        },
+        {
+          "id": "pay",
+          "type": "button",
+          "x": 540,
+          "y": 520,
+          "w": 240,
+          "h": 48,
+          "label": "Pay",
+          "info": [
+            "action.pay"
+          ],
+          "note": "",
+          "event": "pay",
+          "style": "primary"
+        },
+        {
+          "id": "back",
+          "type": "button",
+          "x": 20,
+          "y": 520,
+          "w": 160,
+          "h": 48,
+          "label": "Back to cart",
+          "info": [
+            "action.back"
+          ],
+          "note": "",
+          "event": "back",
+          "style": "primary"
+        }
+      ]
+    },
+    {
+      "id": "done",
+      "title": "Done",
+      "final": true,
+      "blocks": [
+        {
+          "id": "title",
+          "type": "heading",
+          "x": 20,
+          "y": 20,
+          "w": 400,
+          "h": 40,
+          "label": "Thank you",
+          "info": [
+            "done.title"
+          ],
+          "note": "",
+          "event": "",
+          "style": "heading"
+        },
+        {
+          "id": "order",
+          "type": "text",
+          "x": 20,
+          "y": 80,
+          "w": 400,
+          "h": 40,
+          "label": "Order {{done.order_number}}",
+          "info": [
+            "done.order_number"
+          ],
+          "note": "",
+          "event": "",
+          "style": "body"
+        }
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "id": "t1",
+      "source": "cart",
+      "target": "payment",
+      "event": "checkout",
+      "guard": ""
+    },
+    {
+      "id": "t2",
+      "source": "payment",
+      "target": "done",
+      "event": "pay",
+      "guard": "card is valid"
+    },
+    {
+      "id": "t3",
+      "source": "payment",
+      "target": "cart",
+      "event": "back",
+      "guard": ""
+    }
+  ]
+}

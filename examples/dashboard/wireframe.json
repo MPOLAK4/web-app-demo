@@ -1,0 +1,228 @@
+{
+  "name": "Dashboard",
+  "canvas": {
+    "width": 1280,
+    "height": 800
+  },
+  "initial": "overview",
+  "styles": {
+    "heading": {
+      "font_size": 28,
+      "font_weight": "bold",
+      "text_color": "#1a2b4c"
+    },
+    "chrome": {
+      "fill": "#1a2b4c",
+      "text_color": "#ffffff"
+    },
+    "card": {
+      "fill": "#f7f8fa",
+      "border_color": "#c9ced8",
+      "border_width": 1,
+      "radius": 10,
+      "shadow": true
+    },
+    "primary": {
+      "fill": "#2a6cf0",
+      "text_color": "#ffffff",
+      "radius": 8,
+      "align": "center"
+    },
+    "body": {
+      "text_color": "#333333"
+    }
+  },
+  "data": {
+    "stats.revenue": "$12,400",
+    "stats.orders": "318",
+    "stats.users": "1,092",
+    "report.month_revenue": "$48,900"
+  },
+  "states": [
+    {
+      "id": "overview",
+      "title": "Overview",
+      "final": false,
+      "blocks": [
+        {
+          "id": "menu",
+          "type": "nav",
+          "x": 0,
+          "y": 0,
+          "w": 200,
+          "h": 800,
+          "label": "Menu",
+          "info": [
+            "nav.main"
+          ],
+          "note": "",
+          "event": "",
+          "style": "chrome",
+          "options": [
+            "Overview",
+            "Orders",
+            "Customers"
+          ]
+        },
+        {
+          "id": "title",
+          "type": "heading",
+          "x": 230,
+          "y": 24,
+          "w": 500,
+          "h": 40,
+          "label": "Overview",
+          "info": [
+            "overview.title"
+          ],
+          "note": "",
+          "event": "",
+          "style": "heading"
+        },
+        {
+          "id": "revenue",
+          "type": "card",
+          "x": 230,
+          "y": 90,
+          "w": 300,
+          "h": 120,
+          "label": "Revenue {{stats.revenue}}",
+          "info": [
+            "stats.revenue"
+          ],
+          "note": "",
+          "event": "",
+          "style": "card"
+        },
+        {
+          "id": "orders",
+          "type": "card",
+          "x": 550,
+          "y": 90,
+          "w": 300,
+          "h": 120,
+          "label": "Orders {{stats.orders}}",
+          "info": [
+            "stats.orders"
+          ],
+          "note": "",
+          "event": "",
+          "style": "card"
+        },
+        {
+          "id": "users",
+          "type": "card",
+          "x": 870,
+          "y": 90,
+          "w": 300,
+          "h": 120,
+          "label": "Active users {{stats.users}}",
+          "info": [
+            "stats.users"
+          ],
+          "note": "",
+          "event": "",
+          "style": "card"
+        },
+        {
+          "id": "recent",
+          "type": "table",
+          "x": 230,
+          "y": 240,
+          "w": 940,
+          "h": 420,
+          "label": "Recent orders",
+          "info": [
+            "orders.recent"
+          ],
+          "note": "",
+          "event": "",
+          "style": "body"
+        },
+        {
+          "id": "report",
+          "type": "button",
+          "x": 1000,
+          "y": 700,
+          "w": 170,
+          "h": 48,
+          "label": "View report",
+          "info": [
+            "action.open_report"
+          ],
+          "note": "",
+          "event": "open_report",
+          "style": "primary"
+        }
+      ]
+    },
+    {
+      "id": "report",
+      "title": "Report",
+      "final": false,
+      "blocks": [
+        {
+          "id": "title",
+          "type": "heading",
+          "x": 230,
+          "y": 24,
+          "w": 500,
+          "h": 40,
+          "label": "Monthly report",
+          "info": [
+            "report.title"
+          ],
+          "note": "",
+          "event": "",
+          "style": "heading"
+        },
+        {
+          "id": "month",
+          "type": "text",
+          "x": 230,
+          "y": 90,
+          "w": 500,
+          "h": 40,
+          "label": "Revenue this month: {{report.month_revenue}}",
+          "info": [
+            "report.month_revenue"
+          ],
+          "note": "",
+          "event": "",
+          "style": "body"
+        },
+        {
+          "id": "back",
+          "type": "button",
+          "x": 230,
+          "y": 700,
+          "w": 200,
+          "h": 48,
+          "label": "Back to overview",
+          "info": [
+            "action.back"
+          ],
+          "note": "",
+          "event": "back",
+          "style": "primary"
+        }
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "id": "t1",
+      "source": "overview",
+      "target": "report",
+      "event": "open_report",
+      "guard": ""
+    },
+    {
+      "id": "t2",
+      "source": "report",
+      "target": "overview",
+      "event": "back",
+      "guard": ""
+    }
+  ]
+}

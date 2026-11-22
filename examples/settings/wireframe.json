@@ -1,0 +1,218 @@
+{
+  "name": "Settings",
+  "canvas": {
+    "width": 800,
+    "height": 600
+  },
+  "initial": "settings",
+  "styles": {
+    "heading": {
+      "font_size": 28,
+      "font_weight": "bold",
+      "text_color": "#1a2b4c"
+    },
+    "field": {
+      "fill": "#ffffff",
+      "border_color": "#c9ced8",
+      "border_width": 1,
+      "radius": 6
+    },
+    "primary": {
+      "fill": "#2a6cf0",
+      "text_color": "#ffffff",
+      "radius": 8,
+      "align": "center"
+    },
+    "secondary": {
+      "fill": "#ffffff",
+      "text_color": "#2a6cf0",
+      "border_color": "#2a6cf0",
+      "border_width": 1,
+      "radius": 8,
+      "align": "center"
+    }
+  },
+  "data": {
+    "user.name": "Sam Rivera"
+  },
+  "states": [
+    {
+      "id": "settings",
+      "title": "Settings",
+      "final": false,
+      "blocks": [
+        {
+          "id": "title",
+          "type": "heading",
+          "x": 20,
+          "y": 20,
+          "w": 400,
+          "h": 40,
+          "label": "Settings",
+          "info": [
+            "settings.title"
+          ],
+          "note": "",
+          "event": "",
+          "style": "heading"
+        },
+        {
+          "id": "name",
+          "type": "input",
+          "x": 20,
+          "y": 90,
+          "w": 360,
+          "h": 44,
+          "label": "Display name",
+          "info": [
+            "settings.name"
+          ],
+          "note": "",
+          "event": "",
+          "style": "field",
+          "value": "{{user.name}}"
+        },
+        {
+          "id": "notify",
+          "type": "toggle",
+          "x": 20,
+          "y": 160,
+          "w": 360,
+          "h": 40,
+          "label": "Email notifications",
+          "info": [
+            "settings.notifications"
+          ],
+          "note": "",
+          "event": "",
+          "style": "field"
+        },
+        {
+          "id": "language",
+          "type": "select",
+          "x": 20,
+          "y": 220,
+          "w": 360,
+          "h": 44,
+          "label": "Language",
+          "info": [
+            "settings.language"
+          ],
+          "note": "",
+          "event": "",
+          "style": "field",
+          "options": [
+            "English",
+            "Espanol",
+            "Deutsch"
+          ]
+        },
+        {
+          "id": "volume",
+          "type": "slider",
+          "x": 20,
+          "y": 290,
+          "w": 360,
+          "h": 40,
+          "label": "Volume",
+          "info": [
+            "settings.volume"
+          ],
+          "note": "",
+          "event": "",
+          "style": "field"
+        },
+        {
+          "id": "cancel",
+          "type": "button",
+          "x": 20,
+          "y": 520,
+          "w": 160,
+          "h": 48,
+          "label": "Cancel",
+          "info": [
+            "action.cancel"
+          ],
+          "note": "",
+          "event": "cancel",
+          "style": "secondary"
+        },
+        {
+          "id": "save",
+          "type": "button",
+          "x": 600,
+          "y": 520,
+          "w": 180,
+          "h": 48,
+          "label": "Save changes",
+          "info": [
+            "action.save"
+          ],
+          "note": "",
+          "event": "save",
+          "style": "primary"
+        }
+      ]
+    },
+    {
+      "id": "saved",
+      "title": "Saved",
+      "final": true,
+      "blocks": [
+        {
+          "id": "title",
+          "type": "heading",
+          "x": 20,
+          "y": 20,
+          "w": 400,
+          "h": 40,
+          "label": "Settings saved",
+          "info": [
+            "saved.title"
+          ],
+          "note": "",
+          "event": "",
+          "style": "heading"
+        }
+      ]
+    },
+    {
+      "id": "closed",
+      "title": "Closed",
+      "final": true,
+      "blocks": [
+        {
+          "id": "title",
+          "type": "heading",
+          "x": 20,
+          "y": 20,
+          "w": 400,
+          "h": 40,
+          "label": "Closed without saving",
+          "info": [
+            "closed.title"
+          ],
+          "note": "",
+          "event": "",
+          "style": "heading"
+        }
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "id": "t1",
+      "source": "settings",
+      "target": "saved",
+      "event": "save",
+      "guard": ""
+    },
+    {
+      "id": "t2",
+      "source": "settings",
+      "target": "closed",
+      "event": "cancel",
+      "guard": ""
+    }
+  ]
+}

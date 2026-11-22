@@ -1,0 +1,209 @@
+{
+  "name": "Inbox (flawed on purpose)",
+  "canvas": {
+    "width": 800,
+    "height": 600
+  },
+  "initial": "inbox",
+  "styles": {
+    "heading": {
+      "font_size": 28,
+      "font_weight": "bold",
+      "text_color": "#1a2b4c"
+    },
+    "primary": {
+      "fill": "#2a6cf0",
+      "text_color": "#ffffff",
+      "radius": 8,
+      "align": "center"
+    },
+    "body": {
+      "text_color": "#333333"
+    }
+  },
+  "data": {
+    "inbox.unread": "12"
+  },
+  "states": [
+    {
+      "id": "inbox",
+      "title": "Inbox",
+      "final": false,
+      "blocks": [
+        {
+          "id": "title",
+          "type": "heading",
+          "x": 20,
+          "y": 20,
+          "w": 300,
+          "h": 40,
+          "label": "Inbox",
+          "info": [
+            "inbox.title"
+          ],
+          "note": "",
+          "event": "",
+          "style": "heading"
+        },
+        {
+          "id": "unread",
+          "type": "text",
+          "x": 20,
+          "y": 80,
+          "w": 300,
+          "h": 40,
+          "label": "Unread: {{inbox.unread}}",
+          "info": [
+            "inbox.unread"
+          ],
+          "note": "",
+          "event": "",
+          "style": "body"
+        },
+        {
+          "id": "badge",
+          "type": "badge",
+          "x": 340,
+          "y": 80,
+          "w": 160,
+          "h": 40,
+          "label": "Unread: {{inbox.unread}}",
+          "info": [
+            "inbox.unread"
+          ],
+          "note": "FLAW: shows the unread count a second time (duplicate-info, duplicate-label)",
+          "event": "",
+          "style": "body"
+        },
+        {
+          "id": "messages",
+          "type": "list",
+          "x": 20,
+          "y": 140,
+          "w": 500,
+          "h": 300,
+          "label": "Messages",
+          "info": [
+            "inbox.messages"
+          ],
+          "note": "",
+          "event": "",
+          "style": "body"
+        },
+        {
+          "id": "promo",
+          "type": "text",
+          "x": 400,
+          "y": 380,
+          "w": 300,
+          "h": 100,
+          "label": "Upgrade now!",
+          "info": [
+            "inbox.promo"
+          ],
+          "note": "FLAW: sits on top of the message list (overlap)",
+          "event": "",
+          "style": "body"
+        },
+        {
+          "id": "compose",
+          "type": "button",
+          "x": 20,
+          "y": 500,
+          "w": 160,
+          "h": 48,
+          "label": "Compose",
+          "info": [
+            "action.compose"
+          ],
+          "note": "FLAW: raises 'compose' but no transition handles it (dead-control)",
+          "event": "compose",
+          "style": "primary"
+        },
+        {
+          "id": "settings",
+          "type": "button",
+          "x": 200,
+          "y": 500,
+          "w": 160,
+          "h": 48,
+          "label": "Settings",
+          "info": [
+            "action.settings"
+          ],
+          "note": "FLAW: a button that raises no event (button-without-event)",
+          "event": "",
+          "style": "primary"
+        },
+        {
+          "id": "archive",
+          "type": "button",
+          "x": 380,
+          "y": 500,
+          "w": 160,
+          "h": 48,
+          "label": "Archive",
+          "info": [
+            "action.archive"
+          ],
+          "note": "",
+          "event": "open_archive",
+          "style": "primary"
+        }
+      ]
+    },
+    {
+      "id": "archive",
+      "title": "Archive",
+      "final": false,
+      "blocks": [
+        {
+          "id": "title",
+          "type": "heading",
+          "x": 20,
+          "y": 20,
+          "w": 300,
+          "h": 40,
+          "label": "Archive",
+          "info": [
+            "archive.title"
+          ],
+          "note": "FLAW: this screen has no way out and is not final (dead-end)",
+          "event": "",
+          "style": "heading"
+        }
+      ]
+    },
+    {
+      "id": "trash",
+      "title": "Trash",
+      "final": true,
+      "blocks": [
+        {
+          "id": "title",
+          "type": "heading",
+          "x": 20,
+          "y": 20,
+          "w": 300,
+          "h": 40,
+          "label": "Trash",
+          "info": [
+            "trash.title"
+          ],
+          "note": "FLAW: no transition leads here (unreachable-state)",
+          "event": "",
+          "style": "heading"
+        }
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "id": "t1",
+      "source": "inbox",
+      "target": "archive",
+      "event": "open_archive",
+      "guard": ""
+    }
+  ]
+}
