@@ -37,10 +37,18 @@ def write_state(path, info):
 
 
 def remove_state(path):
-    try:
-        os.remove(path)
-    except FileNotFoundError:
-        pass
+    """Delete the state file. Both `stop` and the dying server do this, and on Windows a
+    delete can fail for a moment while the other one is deleting, so retry briefly."""
+    for attempt in range(20):
+        try:
+            os.remove(path)
+            return
+        except FileNotFoundError:
+            return
+        except PermissionError:
+            if attempt == 19:
+                raise
+            time.sleep(0.05)
 
 
 def read_state(path):
