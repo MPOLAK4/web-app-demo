@@ -12,6 +12,9 @@ API (JSON unless noted):
     GET  /api/check            {"findings": [...], "has_errors": bool}
     GET  /api/spec?mode=coder  spec sheet as Markdown ("image" for image generators)
     GET  /api/guide            the AI authoring guide as Markdown
+    GET  /api/play?state=ID    what a user sees on a screen (default: the first)
+    POST /api/play             {"state", "event", "choice"?} -> where the event leads; read-only
+    GET  /api/resolved         "stateId/blockId" -> the block's full resolved style
 Everything else is a static file from static/.
 
 Safety: this tool has no login, so it only listens on 127.0.0.1, only accepts
@@ -27,7 +30,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlsplit
 
-from wireframe import checks, model, ops, spec
+from wireframe import checks, model, ops, play, spec, styles
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MAX_BODY = 1_000_000  # bytes; a wireframe is a few KB, so this is generous
@@ -124,6 +127,7 @@ def make_server(path, host="127.0.0.1", port=8000, static_dir=None, quiet=False)
         # ---- routing ----
         def dispatch(self, method):
             if not self.host_is_local():
+                self.drain_body()
                 return self.send_errors(403, ["requests must use a local Host name"])
             url = urlsplit(self.path)
             route = (method, url.path)
@@ -156,6 +160,29 @@ def make_server(path, host="127.0.0.1", port=8000, static_dir=None, quiet=False)
                     with lock:
                         text = spec.export_spec(model.load_or_create(path), mode)
                     return self.send_bytes(200, text.encode("utf-8"), "text/markdown; charset=utf-8")
+                if route == ("GET", "/api/play"):
+                    with lock:
+                        doc = model.load_or_create(path)
+                    state_id = parse_qs(url.query).get("state", [doc["initial"]])[0]
+                    return self.send_json(200, play.screen(doc, state_id))
+                if route == ("POST", "/api/play"):
+                    body = self.read_json_body()
+                    if body is None:
+                        return
+                    if not isinstance(body, dict) or not isinstance(body.get("state"), str) \
+                            or not isinstance(body.get("event"), str) \
+                            or not isinstance(body.get("choice", ""), str):
+                        return self.send_errors(400, ["send {\"state\": text, \"event\": text, "
+                                                      "\"choice\": text (optional)}"])
+                    with lock:
+                        doc = model.load_or_create(path)
+                    return self.send_json(200, play.step(doc, body["state"], body["event"],
+                                                         body.get("choice") or None))
+                if route == ("GET", "/api/resolved"):
+                    with lock:
+                        doc = model.load_or_create(path)
+                    return self.send_json(200, {f"{st['id']}/{b['id']}": styles.resolve_style(doc, b)
+                                                for st in doc["states"] for b in st["blocks"]})
                 if route == ("GET", "/api/guide"):
                     return self.send_bytes(200, spec.authoring_guide().encode("utf-8"),
                                            "text/markdown; charset=utf-8")
@@ -163,12 +190,15 @@ def make_server(path, host="127.0.0.1", port=8000, static_dir=None, quiet=False)
                 return self.send_errors(400, exc.errors)
 
             if url.path.startswith("/api/"):
-                known = {"/api/wireframe", "/api/op", "/api/check", "/api/spec", "/api/guide"}
+                self.drain_body()      # we are about to refuse; do not leave a body unread
+                known = {"/api/wireframe", "/api/op", "/api/check", "/api/spec", "/api/guide",
+                         "/api/play", "/api/resolved"}
                 if url.path in known:
                     return self.send_errors(405, [f"{method} is not allowed on {url.path}"])
                 return self.send_errors(404, [f"no such endpoint {url.path}"])
             if method == "GET":
                 return self.send_static(url.path)
+            self.drain_body()
             return self.send_errors(405, [f"{method} is not allowed here"])
 
         def send_static(self, url_path):
