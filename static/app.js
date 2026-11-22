@@ -8,7 +8,8 @@
 //
 // How a block LOOKS is also decided by the server (GET /api/resolved gives the
 // final style of every block), and how Play mode FOLLOWS the flow is decided by
-// the server too (/api/play). This file only draws what it is told.
+// the server too (/api/play). The words inside a block, including data standins
+// (GET /api/lines), come from the server as well. This file only draws what it is told.
 //
 // We only ever write text with .textContent (never innerHTML), so a label
 // like "<script>" is shown as text and cannot run as code.
@@ -27,6 +28,9 @@ let current = null;        // id of the state (screen) being shown
 let selected = null;       // id of the main selected block, or null
 let picked = new Set();    // ids of all selected blocks (shift-click adds)
 let playing = false;       // true while Play mode is on
+let dataMode = "debug";    // "debug" shows {{tokens}} as written, "live" shows sample text (R11)
+let lines = {};            // blockId -> text lines on the current screen, from /api/lines
+let linesFor = null;       // the screen `lines` belongs to; null means "ask the server again"
 
 const $ = (id) => document.getElementById(id);
 
@@ -77,12 +81,20 @@ async function adopt(newDoc) {
   doc = newDoc;
   const styled = await api("GET", "/api/resolved");
   resolved = styled.ok ? styled.data : {};
+  linesFor = null;                  // the text may have changed; render() will refetch it
   if (!doc.states.some((s) => s.id === current)) current = doc.initial || (doc.states[0] || {}).id || null;
   const ids = new Set((currentState() || { blocks: [] }).blocks.map((b) => b.id));
   picked = new Set([...picked].filter((id) => ids.has(id)));
   if (!ids.has(selected)) selected = [...picked].at(-1) || null;
   render();
   refreshFindings();
+}
+
+async function refreshLines() {
+  linesFor = current;               // set first so a failed request cannot loop forever
+  if (!current) { lines = {}; return; }
+  const result = await api("GET", `/api/lines?state=${encodeURIComponent(current)}&data=${dataMode}`);
+  lines = result.ok ? result.data : {};
 }
 
 async function load() {
@@ -118,7 +130,12 @@ const formatFields = (obj) => Object.entries(obj || {}).map(([k, v]) => `${k}=${
 // ---------- drawing ----------
 
 function render() {
+  // The text inside blocks comes from the server. If we do not have it for this
+  // screen yet (or the document or data mode changed), ask, then draw.
+  if (!playing && linesFor !== current) { refreshLines().then(render); return; }
   renderHeader();
+  renderData();
+  renderSaveLinks();
   renderStates();
   renderStyles();
   renderPalette();
@@ -245,29 +262,13 @@ function applyStyle(node, r) {
   if (r.shadow) s.boxShadow = "0 3px 8px rgba(0,0,0,.3)";
 }
 
-// What a block says on the page: its label plus whatever its type shows.
-function contentLines(b) {
-  const options = b.options || [];
-  const value = b.value === undefined ? "" : String(b.value);
-  const on = ["true", "on", "yes", "checked", "1"].includes(value.toLowerCase());
-  switch (b.type) {
-    case "input": case "textarea": return [b.label, value || b.placeholder || ""];
-    case "checkbox": return [`${on ? "[x]" : "[ ]"} ${b.label}`];
-    case "toggle": return [`${b.label}  ${on ? "(ON o)" : "(o OFF)"}`];
-    case "radio": return [b.label, ...options.map((o) => `${o === value ? "(o)" : "( )"} ${o}`)];
-    case "select": return [b.label, `${value || options[0] || ""}  v`];
-    case "slider": return [b.label, `-----o----- ${value}`];
-    case "tabs": return [options.length ? options.map((o) => (o === value ? `[${o}]` : o)).join("  |  ") : b.label];
-    case "table": return [b.label, ...options];
-    case "divider": return [];
-    case "icon": return [`(${b.label})`];
-    default: return [b.label];
-  }
-}
+// What a block says on the page. The server works it out (render.content_lines)
+// so the editor, Play and the saved picture files can never disagree.
+const linesOf = (b) => b.lines || lines[b.id] || [b.label];
 
 function fillContent(node, b, withKind) {
   if (withKind) node.append(el("span", { className: "kind" }, b.type));
-  for (const line of contentLines(b)) node.append(el("div", { className: "line" }, line));
+  for (const line of linesOf(b)) node.append(el("div", { className: "line" }, line));
 }
 
 function renderCanvas() {
@@ -518,6 +519,46 @@ async function refreshFindings() {
   }
 }
 
+// ---------- sample data and picture files (R10, R11) ----------
+
+// One row per key of doc.data. Edits go through the set_data / delete_data ops.
+function renderData() {
+  const box = $("data-list");
+  box.replaceChildren();
+  for (const [key, value] of Object.entries(doc.data || {})) {
+    const input = el("input", { value, title: "Sample text shown in live mode" });
+    input.onchange = () => send({ op: "set_data", key, value: input.value });
+    const remove = el("button", { title: "Delete this sample" }, "x");
+    remove.onclick = () => send({ op: "delete_data", key });
+    box.append(el("div", { className: "style-row" }, [el("strong", {}, key), input, el("span", {}, [remove])]));
+  }
+  if (!Object.keys(doc.data || {}).length) box.append(el("p", { className: "hint" }, "No samples yet. A {{key}} with no sample shows a standin made from its name."));
+  $("data-mode").value = dataMode;
+}
+
+// The links ask the server for the screen being shown, in the mode being shown.
+function renderSaveLinks() {
+  for (const format of ["html", "svg"]) {
+    const link = $("save-" + format);
+    link.hidden = !current;
+    if (current) link.href = `/api/render?state=${encodeURIComponent(current)}&format=${format}&data=${dataMode}&download=1`;
+  }
+}
+
+$("data-mode").onchange = () => {
+  dataMode = $("data-mode").value;
+  linesFor = null;
+  if (playing && playScreen) playGoto(playScreen.state); else render();
+};
+
+$("add-data-form").onsubmit = async (e) => {
+  e.preventDefault();
+  if (await send({ op: "set_data", key: $("new-data-key").value.trim(), value: $("new-data-value").value })) {
+    $("new-data-key").value = "";
+    $("new-data-value").value = "";
+  }
+};
+
 // ---------- spec viewer, guide, import ----------
 
 async function showText(title, url) {
@@ -529,7 +570,7 @@ async function showText(title, url) {
 }
 
 $("btn-spec-coder").onclick = () => showText("Spec sheet for a coding AI", "/api/spec?mode=coder");
-$("btn-spec-image").onclick = () => showText("Spec sheet for an image-generating AI", "/api/spec?mode=image");
+$("btn-spec-image").onclick = () => showText("Spec sheet for an image-generating AI", `/api/spec?mode=image&data=${dataMode}`);
 $("btn-guide").onclick = () => showText("Guide for an AI that writes a wireframe", "/api/guide");
 $("viewer-close").onclick = () => $("viewer").close();
 $("viewer-copy").onclick = async () => {
@@ -599,7 +640,7 @@ let playTrail = [];      // screens visited before this one, for Back
 let playLog = [];        // lines for the path log
 
 async function playGoto(stateId) {
-  const result = await api("GET", "/api/play?state=" + encodeURIComponent(stateId));
+  const result = await api("GET", `/api/play?state=${encodeURIComponent(stateId)}&data=${dataMode}`);
   if (!result.ok) { showStatus(result.data.errors || ["could not show that screen"]); return false; }
   playScreen = result.data;
   current = result.data.state;
@@ -693,6 +734,7 @@ function drawPlay() {
   $("play-back").disabled = playTrail.length === 0;
   $("play-log").replaceChildren(...playLog.map((line) => el("li", {}, line)));
   renderStates();
+  renderSaveLinks();
 }
 
 $("btn-play").onclick = () => (playing ? playStop() : playStart());

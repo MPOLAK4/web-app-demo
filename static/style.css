@@ -6,6 +6,7 @@ header input[type=number] { width: 64px; }
 .spacer { flex: 1; }
 h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: #555; margin: 0 0 6px; }
 button { cursor: pointer; }
+a.button { cursor: pointer; padding: 1px 6px; border: 1px solid #767676; border-radius: 3px; background: #efefef; color: #000; text-decoration: none; font-size: 13px; }
 #status { min-height: 22px; padding: 2px 12px; }
 #status.error { background: #fde8e8; color: #8a1c1c; }
 

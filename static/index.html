@@ -14,7 +14,11 @@
     <label>Device <select id="doc-preset"></select></label>
     <label>Screen background <input id="state-bg" size="8" placeholder="#ffffff"></label>
     <label>Grid <input id="grid-size" type="number" min="1" value="1" title="Snap size in pixels; 1 means no snapping"></label>
+    <label>Data <select id="data-mode" title="debug shows {{tokens}} as written; live shows sample text">
+      <option value="debug">debug</option><option value="live">live</option></select></label>
     <span class="spacer"></span>
+    <a id="save-html" class="button" download title="Save this screen as an HTML file">Save HTML</a>
+    <a id="save-svg" class="button" download title="Save this screen as an SVG picture">Save SVG</a>
     <button id="btn-play">Play</button>
     <button id="btn-spec-coder">Spec for coder</button>
     <button id="btn-spec-image">Spec for image AI</button>
@@ -38,6 +42,14 @@
       <form id="add-style-form">
         <input id="new-style-name" placeholder="Style name" required>
         <input id="new-style-fields" placeholder="fill=#2a6cf0, radius=8">
+        <button>Add</button>
+      </form>
+      <h2 class="gap">Sample data</h2>
+      <p class="hint">Text like {{cart.total}} in a block shows the sample in live mode.</p>
+      <div id="data-list"></div>
+      <form id="add-data-form">
+        <input id="new-data-key" placeholder="key, e.g. cart.total" required>
+        <input id="new-data-value" placeholder="sample text">
         <button>Add</button>
       </form>
     </aside>
