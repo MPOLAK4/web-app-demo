@@ -38,3 +38,6 @@ R14. Implement some example UI layouts for the user/AI to see an example of the 
 R15. Review the spec sheet for UI creation; AI should consider or ask for how many iterations should be done on the same UI piece, changing it every time if needed. 
 
 
+## Round 6 requirements
+
+R16. Cleanup / refactor: a general review of the codebase (code, tests, docs), cleaning up and refactoring where it helps, without changing what the application does.
