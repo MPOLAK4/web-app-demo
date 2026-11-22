@@ -1,6 +1,6 @@
 # Spec: wireframe tool
 
-Status: **Round 3** (R1-R5 built in Round 1; R6-R9 in Round 2; R10-R11 specified below).
+Status: **Round 4** (R1-R5 built in Round 1; R6-R9 in Round 2; R10-R11 in Round 3; R12-R13 specified below).
 
 The requirement IDs below are the ones in `problem.md`. Each one is followed by
 acceptance criteria, lettered (a), (b), ... Tests cite the ID and, in their
@@ -352,6 +352,84 @@ A *key* starts with a letter or `_` and then uses letters, digits, `_`, `.` or `
   raw text so editing never saves a standin.
 - (h) The authoring guide explains tokens and `data`, and its example uses them.
 
+## Round 4: no stray servers, a clickable viewer (R12, R13)
+
+How I read the unclear parts (agreed with the author before writing code):
+
+- **R12 "try to not have the application open up a server"** means: everything an
+  AI needs (validate, check, export, render, walk, op) already works from the
+  command line with no server, and the guide says to prefer that. When a server is
+  wanted, an AI can start it in the background and stop it again with commands, and
+  a server nobody uses shuts itself down.
+- **R12 "pinged"** means *any request* to the server. A browser editor tab also
+  sends a small heartbeat (`GET /api/ping`) every minute while it is open, so it is
+  not shut down under someone who is working. A closed tab or an idle AI lets the
+  5 minutes run out.
+- **R13 "works"** means a **viewer only**: one `.html` file that opens by
+  double-click (no server, no internet) and lets you look at every screen, use Play
+  and save a screen as SVG. It does **not** edit; editing needs the server or the
+  command line. It cannot load a different wireframe by itself: it is *built from*
+  one wireframe by Python (`viewer` command), so the rules for styles, flow and
+  drawing stay in Python and the page only shows answers computed in advance.
+
+### R12. Server lifetime
+
+- (a) `make_server(..., idle_timeout=300)`: every request (any method, any path,
+  including refused ones) counts as a ping and restarts the clock. When
+  `idle_timeout` seconds pass with no request, the server stops serving by itself
+  and the program exits. `idle_timeout` must be a positive number.
+- (b) `GET /api/ping` returns `{"ok": true, "idle_timeout": N}` and changes nothing.
+- (c) `POST /api/shutdown` (JSON body, local Host only, like every write) replies
+  `{"ok": true}` and then stops the server. A wrong Content-Type is 415 and the
+  server keeps running.
+- (d) `python server.py [FILE] [--port N] [--idle-timeout SECONDS] [--state-file PATH]`.
+  The default idle timeout is 300 seconds. With `--state-file` the server writes
+  `{"pid", "port", "url", "file"}` there once it is listening and deletes it when
+  it stops for any reason (idle, shutdown request, Ctrl+C).
+- (e) Command line: `python -m wireframe start [FILE] [--port N] [--idle-timeout S]
+  [--state-file PATH]` starts the server in the background, waits until it answers
+  `/api/ping`, prints its URL and returns. Port `0` (the default for `start`)
+  means any free port, so a leftover server never blocks it. If a live server is
+  already recorded in the state file, `start` prints that URL and starts nothing.
+  A state file that points at a dead server is replaced.
+- (f) `python -m wireframe stop [--state-file PATH]` asks the recorded server to shut
+  down (`POST /api/shutdown`), waits until it is gone and removes the state file.
+  It never kills a process by number. Nothing running (or a stale file) is not an
+  error: it says so and exits 0.
+- (g) `python -m wireframe status [--state-file PATH]` prints the URL if a recorded
+  server answers, otherwise says none is running; exit code 0 either way.
+- (h) The default state file is `.wireframe-server.json` in the current folder; it
+  is in `.gitignore`.
+- (i) The browser editor sends `GET /api/ping` every 60 seconds while open.
+- (j) The authoring guide tells an AI to prefer the command-line commands, and to
+  `stop` any server it started.
+
+### R13. A clickable viewer file
+
+- (a) `viewer.build_viewer(doc)` returns the text of one self-contained HTML file.
+  It has no link to anything else (no `http`, no `src=` or `href=` pointing out) and
+  makes no network request.
+- (b) The file carries, for every screen: title, final flag, the picture as SVG in
+  both data modes (from `render.render_screen`), the click areas (the visible,
+  enabled blocks that raise an event: x, y, w, h, event), the events it offers, and
+  for each event the answer `play.step` gives (`moved`, `stuck` or `choose` with its
+  options). The page looks answers up; it never decides them.
+- (c) Safety: wireframe text can never become markup or script. The data sits in a
+  JSON block with `<` escaped, pictures are shown with `<img>` from SVG data (an
+  image cannot run script), and the page carries a Content-Security-Policy.
+- (d) The page shows the first screen; lets you pick any screen from a list; shows
+  and clicks the screen's event areas and lists its events as buttons (Play); says
+  when an event is stuck or needs a choice and offers the options; has Back and
+  Restart; has a debug/live switch; has a "Save SVG" link for the screen shown.
+- (e) Output is deterministic (same document, same text) and building never
+  changes the document.
+- (f) Command line: `python -m wireframe viewer FILE --out PATH` writes the file
+  (replacing an existing one). Without `--out` it prints the text.
+- (g) `GET /api/viewer` returns the viewer for the server's wireframe as
+  `text/html`; `download=1` adds a `Content-Disposition` filename. The editor has a
+  "Save viewer" link.
+- (h) `viewer.html` in the repository root is a built example anyone can double-click.
+
 ## Out of scope for this round
 
 - Evaluating guards, simulating user sessions, or checking data values.
@@ -360,6 +438,8 @@ A *key* starts with a letter or `_` and then uses letters, digits, `_`, `.` or `
 - Standins for anything but a block's visible text (not `note`, not `info`).
 - Undo/redo, multi-user editing, authentication (the server is local only).
 - Renaming a state's `id` after creation (change its `title` instead).
+- Editing in the viewer file, or loading another wireframe into it; a JavaScript port of the Python rules; running Python in the browser.
+- Stopping a server by killing its process; authentication for `shutdown` (it is local-only and JSON-only like every write).
 
 ## Files
 
@@ -372,6 +452,8 @@ A *key* starts with a letter or `_` and then uses letters, digits, `_`, `.` or `
 | `wireframe/play.py` | `screen`, `step` (R9) |
 | `wireframe/data.py` | `find_tokens`, `fill`, standins (R11) |
 | `wireframe/render.py` | `content_lines`, `render_screen` to SVG or HTML (R10) |
+| `wireframe/serverctl.py` | `start`, `stop`, `status` for a background server (R12) |
+| `wireframe/viewer.py`, `wireframe/viewer_template.html` | `build_viewer`: the clickable file (R13) |
 | `wireframe/spec.py` | `export_spec`, `authoring_guide` (R2, R3) |
 | `wireframe/example.py` | a valid example wireframe |
 | `wireframe/cli.py`, `wireframe/__main__.py` | command line |
