@@ -23,12 +23,13 @@ def example_wireframe():
             "primary": {"fill": "#2a6cf0", "text_color": "#ffffff", "radius": 8},
             "body": {"fill": "#f7f8fa", "border_color": "#c9ced8"},
         },
+        "data": {"cart.total": "$42.00"},
         "states": [
             {"id": "cart", "title": "Cart", "final": False, "blocks": [
                 _block("title", "heading", 20, 20, 400, 40, "Your cart", ["cart.title"]),
                 _block("items", "list", 20, 80, 500, 300, "Items", ["cart.items"],
                        note="One row per product: name, quantity, price"),
-                _block("total", "text", 540, 80, 240, 40, "Total", ["cart.total"]),
+                _block("total", "text", 540, 80, 240, 40, "Total: {{cart.total}}", ["cart.total"]),
                 _block("checkout", "button", 540, 520, 240, 48, "Checkout", ["action.checkout"],
                        event="checkout"),
             ]},
@@ -40,7 +41,7 @@ def example_wireframe():
             ]},
             {"id": "done", "title": "Done", "final": True, "blocks": [
                 _block("title", "heading", 20, 20, 400, 40, "Thank you", ["done.title"]),
-                _block("order", "text", 20, 80, 400, 40, "Order number", ["done.order_number"]),
+                _block("order", "text", 20, 80, 400, 40, "Order {{done.order_number}}", ["done.order_number"]),
             ]},
         ],
         "transitions": [

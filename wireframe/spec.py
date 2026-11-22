@@ -10,6 +10,7 @@ Both are pure functions: same input, same output text, no side effects.
 
 import json
 
+from . import data as datamod
 from .checks import RULES
 from .example import example_wireframe
 from .model import BLOCK_TYPES, DEVICE_PRESETS, WireframeError
@@ -162,6 +163,11 @@ def _coder_spec(doc):
         lines.append(f"- **{name}**: {fields}. Used by: {used}")
     if named:
         lines.append("")
+    if doc.get("data"):
+        lines += ["## Sample data", "",
+                  "Text such as `{{key}}` stands for a value; these are the sample values (live mode):", ""]
+        lines += [f"- `{k}`: {_cell(v)}" for k, v in sorted(doc["data"].items())]
+        lines.append("")
     lines += ["## Transitions", ""]
     if not doc["transitions"]:
         lines.append("(none)")
@@ -182,7 +188,10 @@ def _place(block, width, height):
     return col if row == "middle" else row if col == "center" else f"{row}-{col}"
 
 
-def _image_spec(doc):
+def _image_spec(doc, mode="debug"):
+    def fill(text):
+        return datamod.fill(doc, text, mode)
+
     w, h = doc["canvas"]["width"], doc["canvas"]["height"]
     lines = [
         f"# Image brief: {doc['name']}",
@@ -198,15 +207,15 @@ def _image_spec(doc):
             lines += ["An empty screen.", ""]
             continue
         for b in shown:
-            label = f' labelled "{b["label"]}"' if b["label"].strip() else ""
+            label = f' labelled "{fill(b["label"])}"' if b["label"].strip() else ""
             size = f"about {round(100 * b['w'] / w)}% wide and {round(100 * b['h'] / h)}% tall"
             extra = ""
             if b.get("placeholder"):
-                extra += f', placeholder text "{b["placeholder"]}"'
+                extra += f', placeholder text "{fill(b["placeholder"])}"'
             if b.get("options"):
-                extra += ", choices: " + ", ".join(b["options"])
+                extra += ", choices: " + ", ".join(fill(o) for o in b["options"])
             if b.get("value"):
-                extra += f', showing "{b["value"]}"'
+                extra += f', showing "{fill(b["value"])}"'
             if b.get("disabled"):
                 extra += ", greyed out"
             look = _look_words(resolve_style(doc, b))
@@ -221,19 +230,23 @@ def _image_spec(doc):
             names = []
             for s, b in users:
                 n = doc["states"].index(s) + 1
-                what = f'"{b["label"]}" {_VISUAL_KIND[b["type"]]}' if b["label"].strip() else _VISUAL_KIND[b["type"]]
+                what = f'"{fill(b["label"])}" {_VISUAL_KIND[b["type"]]}' if b["label"].strip() else _VISUAL_KIND[b["type"]]
                 names.append(f"{what} on screen {n}")
             lines.append("- " + "; ".join(names))
         lines.append("")
     return "\n".join(lines)
 
 
-def export_spec(doc, mode):
-    """Markdown spec sheet. mode is 'coder' or 'image'."""
+def export_spec(doc, mode, data="debug"):
+    """Markdown spec sheet. mode is 'coder' or 'image'.
+
+    `data` is the standin mode (R11): the image brief shows sample text when it is
+    'live'. The coder spec always keeps tokens as written, because code needs the key."""
+    datamod.check_mode(data)
     if mode == "coder":
         return _coder_spec(doc)
     if mode == "image":
-        return _image_spec(doc)
+        return _image_spec(doc, data)
     raise WireframeError(f"unknown mode '{mode}'; use one of: {', '.join(MODES)}")
 
 
@@ -276,6 +289,12 @@ All of these may be left out; leave them out unless you mean them.
   non-empty strings, for `select`, `tabs`, `radio`), and the true/false flags
   `disabled`, `hidden` and `required`.
 - State: `background`, a colour.
+- Sample data: text in a block's `label`, `placeholder`, `value` or `options` may hold a
+  token such as `{{{{cart.total}}}}`. The document's optional `data` is an object of key ->
+  sample text (`{{"cart.total": "$42.00"}}`). In *debug* mode a picture or brief shows the
+  token as written; in *live* mode it shows the sample, or a readable standin made from
+  the key (`cart.total` becomes "Cart total") when `data` has no entry. A key starts with
+  a letter or `_`, then letters, digits, `_`, `.` or `-`.
 - A *style* may use only these fields: `fill`, `text_color`, `border_color` (hex colours
   such as `#fff` or `#2a6cf0`), `border_width`, `radius`, `padding` (whole numbers, 0 or
   more), `font_size` (whole number above 0), `font_weight` (`normal` or `bold`), `align`
