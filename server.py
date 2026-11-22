@@ -129,16 +129,9 @@ def make_server(path, host="127.0.0.1", port=8000, static_dir=None, quiet=False,
                 self.send_errors(400, ["Content-Length is required"])
                 return None
             if length > MAX_BODY:
-                # Read and throw away the body (up to a cap) before replying. If we
-                # answer and close while the client is still sending, the operating
-                # system resets the connection and the client never sees the 413.
-                remaining = min(length, 5 * MAX_BODY)
-                while remaining > 0:
-                    chunk = self.rfile.read(min(65536, remaining))
-                    if not chunk:
-                        break
-                    remaining -= len(chunk)
-                self.close_connection = True
+                # Read and throw away the body before replying, or the operating system
+                # may reset the connection and the client never sees the 413.
+                self.drain_body()
                 self.send_errors(413, [f"body too large (limit {MAX_BODY} bytes)"])
                 return None
             try:
