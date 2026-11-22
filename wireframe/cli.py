@@ -3,10 +3,12 @@
     python -m wireframe new FILE [--name NAME] [--example]
     python -m wireframe validate FILE
     python -m wireframe check FILE
-    python -m wireframe export FILE [--mode coder|image]
+    python -m wireframe export FILE [--mode coder|image] [--data debug|live]
     python -m wireframe guide
     python -m wireframe op FILE '{"op": "add_block", ...}'
     python -m wireframe walk FILE [EVENT[=TRANSITION_ID] ...]
+    python -m wireframe render FILE [--state ID | --after EVENT[=ID] ...] [--format svg|html]
+                                    [--data debug|live] [--out PATH]
 
 Exit codes: 0 success, 1 a problem was found or the command failed.
 """
@@ -16,7 +18,7 @@ import json
 import os
 import sys
 
-from . import checks, model, ops, play, spec
+from . import checks, data, model, ops, play, render, spec
 from .example import example_wireframe
 
 
@@ -43,6 +45,8 @@ def _build_parser():
     p = sub.add_parser("export", help="print a spec sheet (R2)")
     p.add_argument("file")
     p.add_argument("--mode", choices=spec.MODES, default="coder")
+    p.add_argument("--data", choices=data.MODES, default="debug",
+                   help="debug shows {{tokens}} as written, live shows sample text (image brief only)")
 
     sub.add_parser("guide", help="print the guide an AI follows to write a wireframe (R3)")
 
@@ -54,6 +58,15 @@ def _build_parser():
     p.add_argument("file")
     p.add_argument("events", nargs="*", metavar="EVENT[=TRANSITION_ID]",
                    help="events to raise in order; add =ID to pick one of several guarded transitions")
+
+    p = sub.add_parser("render", help="write a picture file (SVG or HTML) of one screen (R10)")
+    p.add_argument("file")
+    p.add_argument("--state", help="the screen to draw (default: the first screen)")
+    p.add_argument("--after", nargs="+", metavar="EVENT[=ID]",
+                   help="draw the screen reached after these events, like walk")
+    p.add_argument("--format", choices=render.FORMATS, default="svg")
+    p.add_argument("--data", choices=data.MODES, default="debug")
+    p.add_argument("--out", help="write here instead of printing (an existing file is replaced)")
     return parser
 
 
@@ -92,6 +105,21 @@ def _walk(doc, tokens):
     return 0
 
 
+def _render(args):
+    doc = model.load(args.file)
+    if args.state and args.after:
+        return _fail(["use --state or --after, not both"])
+    state_id = args.state or play.follow(doc, args.after or [])
+    text = render.render_screen(doc, state_id, args.format, args.data)
+    if args.out:
+        with open(args.out, "w", encoding="utf-8", newline="\n") as f:
+            f.write(text)
+        print(f"Wrote {args.out}")
+    else:
+        print(text, end="")
+    return 0
+
+
 def main(argv=None):
     args = _build_parser().parse_args(argv)
     try:
@@ -109,7 +137,7 @@ def main(argv=None):
             print(checks.format_findings(findings))
             return 1 if checks.has_errors(findings) else 0
         elif args.command == "export":
-            print(spec.export_spec(model.load(args.file), args.mode), end="")
+            print(spec.export_spec(model.load(args.file), args.mode, args.data), end="")
         elif args.command == "guide":
             print(spec.authoring_guide(), end="")
         elif args.command == "op":
@@ -119,6 +147,8 @@ def main(argv=None):
                 return _fail([f"the op is not valid JSON: {exc}"])
             model.save(ops.apply_op(model.load(args.file), op), args.file)
             print("ok")
+        elif args.command == "render":
+            return _render(args)
         elif args.command == "walk":
             return _walk(model.load(args.file), args.events)
     except model.WireframeError as exc:

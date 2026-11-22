@@ -153,5 +153,74 @@ class CliTests(unittest.TestCase):
         self.assertIn("How to write a wireframe", out)
 
 
+class CliRenderTests(unittest.TestCase):
+    """R10(g), R11(e): the render command and export --data."""
+
+    def setUp(self):
+        self.dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.dir.cleanup)
+        self.path = os.path.join(self.dir.name, "w.json")
+        run("new", self.path, "--example")
+
+    def read(self):
+        with open(self.path, encoding="utf-8") as f:
+            return f.read()
+
+    def test_R10_render_prints_svg_of_the_initial_screen_by_default(self):
+        """R10(g)."""
+        code, out, err = run("render", self.path)
+        self.assertEqual(code, 0, err)
+        self.assertTrue(out.startswith("<svg"))
+        self.assertIn("Your cart", out)
+
+    def test_R10_render_state_and_after_pick_the_screen(self):
+        """R10(g): --state names a screen; --after follows events like walk."""
+        _, by_state, _ = run("render", self.path, "--state", "payment")
+        _, by_events, _ = run("render", self.path, "--after", "checkout")
+        self.assertIn("Card number", by_state)
+        self.assertEqual(by_state, by_events)
+
+    def test_R10_render_html_and_data_mode(self):
+        """R10(g), R11(e)."""
+        _, debug, _ = run("render", self.path, "--format", "html")
+        self.assertIn("<!DOCTYPE html>", debug)
+        self.assertIn("{{cart.total}}", debug)
+        _, live, _ = run("render", self.path, "--format", "html", "--data", "live")
+        self.assertIn("Total: $42.00", live)
+
+    def test_R10_render_out_writes_a_file_instead_of_printing(self):
+        """R10(g)."""
+        target = os.path.join(self.dir.name, "pic.svg")
+        code, out, err = run("render", self.path, "--out", target)
+        self.assertEqual(code, 0, err)
+        self.assertNotIn("<svg", out)
+        with open(target, encoding="utf-8") as f:
+            self.assertTrue(f.read().startswith("<svg"))
+
+    def test_R10_render_problems_exit_1_and_write_nothing(self):
+        """R10(g): both selectors, an unknown screen, a stuck event."""
+        target = os.path.join(self.dir.name, "pic.svg")
+        for argv in (("--state", "cart", "--after", "checkout"), ("--state", "zzz"), ("--after", "nope")):
+            with self.subTest(argv=argv):
+                code, out, err = run("render", self.path, *argv, "--out", target)
+                self.assertEqual(code, 1)
+                self.assertTrue(err)
+                self.assertFalse(os.path.exists(target))
+
+    def test_R11_export_image_data_live_fills_tokens(self):
+        """R11(e)."""
+        _, debug, _ = run("export", self.path, "--mode", "image")
+        _, live, _ = run("export", self.path, "--mode", "image", "--data", "live")
+        self.assertIn("{{cart.total}}", debug)
+        self.assertIn("Total: $42.00", live)
+        self.assertNotIn("{{", live)
+
+    def test_R11_render_does_not_change_the_file(self):
+        """R10(g): rendering only reads."""
+        before = self.read()
+        run("render", self.path, "--data", "live")
+        self.assertEqual(self.read(), before)
+
+
 if __name__ == "__main__":
     unittest.main()
