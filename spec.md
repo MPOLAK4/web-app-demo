@@ -1,6 +1,6 @@
 # Spec: wireframe tool
 
-Status: **Round 2** (R1-R5 built in Round 1; R6-R9 specified below).
+Status: **Round 3** (R1-R5 built in Round 1; R6-R9 in Round 2; R10-R11 specified below).
 
 The requirement IDs below are the ones in `problem.md`. Each one is followed by
 acceptance criteria, lettered (a), (b), ... Tests cite the ID and, in their
@@ -268,10 +268,96 @@ New block types (added to the Round 1 eight): `textarea`, `checkbox`, `radio`,
   `sys:` events, and a notice on reaching a final screen. Play mode never
   changes the wireframe file.
 
+## Round 3: picture files, data standins (R10, R11)
+
+How I read the unclear parts (agreed with the author before writing code):
+
+- **R10** means **HTML and SVG** files of one screen (no PNG: the project is
+  standard-library-only and has no way to draw text into a PNG). "Any state of
+  the UI" means any screen, or the screen reached after a list of events (the
+  same events `walk` takes).
+- **R11** means *tokens plus a sample-data table*: text such as `{{cart.total}}`
+  inside a block's text, and an optional `data` table in the document that says
+  what to show in its place. A key with no table entry gets a standin made from
+  its name.
+- **Debug and live.** *debug* shows the text exactly as written (`{{cart.total}}`);
+  *live* shows the standins. The mode applies to the R10 files, to the browser
+  editor and Play, and to the image spec. The coder spec always keeps the raw tokens.
+
+### Data model additions (all optional, like Round 2)
+
+```
+document:  "data": {"cart.total": "$42.00", "user.name": "Sam Rivera"}
+block text that may hold {{key}}:  label, placeholder, value, options (each entry)
+```
+
+A *key* starts with a letter or `_` and then uses letters, digits, `_`, `.` or `-`
+(for example `file.value`). A token is `{{key}}`, spaces inside the braces allowed.
+
+### R10. Output a picture file of any screen
+
+- (a) `render.render_screen(doc, state_id, fmt, data="debug")` returns the file
+  text for one screen. `fmt` is `svg` or `html`. An unknown format, screen or
+  data mode is an error.
+- (b) The file is self-contained: no `<script>`, no external links or images.
+  Every piece of user text is escaped, so a label like `<script>` shows as text.
+- (c) The file has the canvas size and the screen background, and draws every
+  visible block at its x, y, w, h with its resolved style (fill, border,
+  radius, text colour, font size and weight, alignment, opacity, shadow).
+  Hidden blocks are not drawn; disabled blocks are drawn faded. Blocks are drawn
+  in file order, so later blocks are on top.
+- (d) What a block says (its label, placeholder, choices, value, with the
+  per-type decoration such as `[x]` for a ticked checkbox) comes from
+  `render.content_lines`. The browser gets the same lines from `GET /api/lines`
+  instead of working them out again.
+- (e) Output is deterministic: same document, screen, format and mode, same text.
+- (f) `play.follow(doc, tokens)` starts at the initial screen, takes events like
+  `walk` (`EVENT` or `EVENT=TRANSITION_ID`) and returns the screen reached. A
+  stuck event or an unresolved choice is an error that names the event.
+- (g) Command line: `python -m wireframe render FILE [--state ID | --after
+  EVENT[=ID] ...] [--format svg|html] [--data debug|live] [--out PATH]`. With no
+  `--out` the file text is printed. `--state` and `--after` together, or an
+  unknown screen, give exit code 1 and write nothing.
+- (h) `GET /api/render?state=ID&after=EVENT...&format=&data=&download=1` returns
+  the file (`image/svg+xml` or `text/html`), read-only. It sends a
+  `Content-Security-Policy` that forbids scripts. `download=1` adds a
+  `Content-Disposition: attachment` filename. Bad input is HTTP 400.
+- (i) Browser: "Save HTML" and "Save SVG" links download the screen being shown,
+  in the data mode being shown, in the editor and in Play.
+
+### R11. Data standins (live mode and debug mode)
+
+- (a) `data` is validated: an object of key to text, each key in the key format
+  above. Errors name the path, for example `data.cart total: ...`. A Round 1 or
+  Round 2 file without `data` is still valid.
+- (b) `data.find_tokens(text)` lists the keys in a text. A `{{` with no closing
+  `}}`, or braces around something that is not a key, is plain text.
+- (c) `data.fill(doc, text, mode)`: in `debug` mode the text is returned
+  unchanged. In `live` mode each token is replaced by the table's text for its
+  key; a key not in the table gets a standin made from the key (`cart.total`
+  becomes `Cart total`). Replaced text is never searched for tokens again.
+  An unknown mode is an error.
+- (d) Ops `set_data` (add or replace one key) and `delete_data` (remove one key;
+  an unknown key is an error). The `data` field is removed again when the last
+  key is deleted, so an unused file keeps its old shape.
+- (e) `render.content_lines` applies the mode to label, placeholder, value and
+  options. The image spec honours it (`export_spec(doc, "image", data="live")`,
+  `export --data live`, `GET /api/spec?data=live`); the coder spec ignores the
+  mode, keeps tokens as written, and gains a `## Sample data` section when `data`
+  is not empty.
+- (f) `GET /api/play` and `GET /api/lines` take `data=debug|live`. An unknown
+  value is HTTP 400.
+- (g) Browser: a debug/live choice, and a panel to add, change and delete sample
+  data. The canvas and Play show the chosen mode; the inspector always shows the
+  raw text so editing never saves a standin.
+- (h) The authoring guide explains tokens and `data`, and its example uses them.
+
 ## Out of scope for this round
 
 - Evaluating guards, simulating user sessions, or checking data values.
 - Calling an AI service, image generation, or generating UI code.
+- PNG output, and a file holding every screen at once.
+- Standins for anything but a block's visible text (not `note`, not `info`).
 - Undo/redo, multi-user editing, authentication (the server is local only).
 - Renaming a state's `id` after creation (change its `title` instead).
 
@@ -284,6 +370,8 @@ New block types (added to the Round 1 eight): `textarea`, `checkbox`, `radio`,
 | `wireframe/checks.py` | `check` (R4, R5, R6-R8 findings) |
 | `wireframe/styles.py` | style fields, defaults, `resolve_style` (R6, R7) |
 | `wireframe/play.py` | `screen`, `step` (R9) |
+| `wireframe/data.py` | `find_tokens`, `fill`, standins (R11) |
+| `wireframe/render.py` | `content_lines`, `render_screen` to SVG or HTML (R10) |
 | `wireframe/spec.py` | `export_spec`, `authoring_guide` (R2, R3) |
 | `wireframe/example.py` | a valid example wireframe |
 | `wireframe/cli.py`, `wireframe/__main__.py` | command line |
