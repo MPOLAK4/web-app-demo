@@ -69,3 +69,22 @@ def step(doc, state_id, event, choice=None):
                             for t in matches]}
     t = matches[0]
     return {"status": "moved", "state": t["target"], "event": event, "transition": t["id"]}
+
+
+def follow(doc, tokens):
+    """The id of the screen reached from the initial screen after `tokens` (R10).
+
+    Each token is `EVENT` or `EVENT=TRANSITION_ID`, the same syntax `walk` uses.
+    A stuck event, or a choice left unresolved, stops with an error naming the event."""
+    current = doc["initial"]
+    for token in tokens:
+        event, _, choice = token.partition("=")
+        result = step(doc, current, event, choice.strip() or None)
+        if result["status"] == "stuck":
+            raise WireframeError(f"event '{event.strip()}' does nothing on screen '{current}'")
+        if result["status"] == "choose":
+            ids = ", ".join(o["transition"] for o in result["options"])
+            raise WireframeError(f"event '{event.strip()}' on '{current}' needs a choice: "
+                                 f"write {event.strip()}=ID with one of {ids}")
+        current = result["state"]
+    return current
