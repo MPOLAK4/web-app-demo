@@ -87,8 +87,10 @@ would not put on a public web page. These repositories are public."
 - The repo-root `viewer.html` is a built file (`python -m wireframe viewer FILE --out viewer.html`
   from `example_wireframe()`). Rebuild it whenever `render.py`, `play.py`, `viewer.py`,
   `viewer_template.html` or the example wireframe changes; a test fails if it is stale.
-- A new route in `server.py` must also be added to the `known` set that produces 405 for the
-  wrong method. Any request resets the idle clock, so do not add a route that skips `dispatch`.
+- A new route in `server.py` is one line in the `ROUTES` table (method, path -> Handler method
+  name) plus that method; the 405/404 answers come from the table. Document it in the module
+  docstring (a test checks every path is there). Any request resets the idle clock, so do not
+  add a route that skips `dispatch`.
 - Tests that start a real server (`serverctl`, `server.py` subprocesses) must stop it in
   cleanup, use `--state-file` in a temp dir, and short `--idle-timeout`s. Never leave a server
   running when you finish. When you need one yourself, use `python -m wireframe start` / `stop`,
