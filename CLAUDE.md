@@ -84,3 +84,14 @@ would not put on a public web page. These repositories are public."
   `docs/decisions/`, numbered `0001`, `0002`, ... in order.
 - Write a handoff file (`handoff-round-<N>.md`) only when I ask for one, and leave
   it uncommitted until I have read it.
+- The repo-root `viewer.html` is a built file (`python -m wireframe viewer FILE --out viewer.html`
+  from `example_wireframe()`). Rebuild it whenever `render.py`, `play.py`, `viewer.py`,
+  `viewer_template.html` or the example wireframe changes; a test fails if it is stale.
+- A new route in `server.py` must also be added to the `known` set that produces 405 for the
+  wrong method. Any request resets the idle clock, so do not add a route that skips `dispatch`.
+- Tests that start a real server (`serverctl`, `server.py` subprocesses) must stop it in
+  cleanup, use `--state-file` in a temp dir, and short `--idle-timeout`s. Never leave a server
+  running when you finish. When you need one yourself, use `python -m wireframe start` / `stop`,
+  not a bare `python server.py &`.
+- On Windows, deleting or replacing a file another process may touch can raise
+  `PermissionError` for a moment; retry briefly (see `serverctl.remove_state`).
