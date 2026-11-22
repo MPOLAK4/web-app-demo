@@ -18,6 +18,36 @@ from .styles import STYLE_FIELDS, resolve_style
 
 MODES = ("coder", "image")
 
+# R15: how many passes to make on one UI piece when the user did not say. The guide
+# and both exports read this one name, so they cannot disagree.
+DEFAULT_ITERATIONS = 2
+
+
+def _iterations_for_coder():
+    return [
+        "## Iterations", "",
+        "If you are asked to refine this UI more than once, settle the number of passes first: "
+        "use the number the user gave, ask if they gave none, and use "
+        f"{DEFAULT_ITERATIONS} (saying so) if you cannot ask. Every pass after the first must "
+        "change something you can name (a position, size, type, label or style, or removing "
+        "duplicated information); if nothing is left to change, stop early and say so. "
+        "Log each pass in one line: `Pass k of N: <what changed>, because <why>`.",
+        "",
+    ]
+
+
+def _iterations_for_image():
+    # Visual words only: an image generator must not see events, guards or info keys (R2(b)).
+    return [
+        "## Iterations", "",
+        "If you are asked for several versions of a screen, agree the number first: use the "
+        "number you were given, ask if none was given, and make "
+        f"{DEFAULT_ITERATIONS} if you cannot ask. Each version after the first must differ from "
+        "the one before in something you can name (layout, spacing, size, emphasis, colour or "
+        "wording), and you say what changed and why. Stop early if nothing is left to improve.",
+        "",
+    ]
+
 # What each block type means, for the AI authoring guide.
 TYPE_MEANING = {
     "heading": "a title for the screen or a section",
@@ -174,7 +204,9 @@ def _coder_spec(doc):
     for t in doc["transitions"]:
         guard = f" if {t['guard']}" if t["guard"].strip() else ""
         lines.append(f"- `{t['source']}` --`{t['event']}`{guard}--> `{t['target']}`")
-    return "\n".join(lines) + "\n"
+    lines.append("")
+    lines += _iterations_for_coder()
+    return "\n".join(lines)
 
 
 def _place(block, width, height):
@@ -234,6 +266,7 @@ def _image_spec(doc, mode="debug"):
                 names.append(f"{what} on screen {n}")
             lines.append("- " + "; ".join(names))
         lines.append("")
+    lines += _iterations_for_image()
     return "\n".join(lines)
 
 
@@ -337,6 +370,18 @@ Check your file with `python -m wireframe validate FILE` (the format) and
 `python -m wireframe check FILE` (the rules above), or send it with
 `PUT /api/wireframe` to a running server. A malformed wireframe is rejected with
 a list of errors that each say where the problem is.
+
+## Iterating on one UI piece
+
+A *piece* is one screen, or one group of blocks on a screen. Do not stop at the first draft out of habit, and do not keep going with no purpose.
+
+1. Settle the number of passes N before the first draft. Use the number the user gave. If the user gave none, ask. If you cannot ask (nobody is there to answer), use {DEFAULT_ITERATIONS} and say so in your reply.
+2. Make every pass after the first change something you can name: a position, a size, a type, a label, a style, or removing duplicated information. If nothing is left to change, stop early and say so instead of repeating the same file.
+3. After each pass run `validate` and `check`, and fix errors before the next pass.
+4. Keep ids stable between passes and make small edits with `op`, so each change is easy to see.
+5. Write one line per pass: `Pass k of N: <what changed>, because <why>; check: <E> errors, <W> warnings`.
+
+This tool does not store or enforce the count: you are responsible for it.
 
 ## Servers: prefer none
 
