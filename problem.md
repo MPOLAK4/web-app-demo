@@ -21,3 +21,9 @@ R6. Ensure that coder/Image Gen specs outputted by the wireframe model is detail
 R7. Blocks can be marked to carry the same style/design choice
 R8. Broadly expand the level of UI options available
 R9. Implement a mode where the user can navigate the wireframe as if it was an actual UI.
+
+
+## Round 3
+
+R10. Add the ability to output a html/png/other file formats of the UI, allow for any state of the UI to be shown in. This is so an AI/user can show how the mockup would look for a certain UI / UX setup.
+R11. Data standins; when reading something like "file.value", have the ability to replace it with placeholder text when displayed. This is the equivalent of being in 'live' mode rather than 'debug' mode.
