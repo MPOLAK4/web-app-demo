@@ -26,12 +26,31 @@ TYPE_MEANING = {
     "list": "a repeated set of rows or cards",
     "nav": "a navigation bar or menu",
     "container": "an empty panel that groups other blocks; it conveys nothing itself",
+    "textarea": "a multi-line text field the user types into",
+    "checkbox": "a box the user ticks on or off (label says what it means)",
+    "radio": "one choice among several; give each choice its own radio block",
+    "toggle": "an on/off switch",
+    "select": "a dropdown; put the choices in `options`",
+    "slider": "a control for picking a value in a range",
+    "tabs": "a row of tabs; put the tab names in `options`",
+    "card": "a framed panel that groups related blocks; it conveys nothing itself",
+    "table": "rows and columns of data",
+    "modal": "a dialog panel that sits over the screen; it conveys nothing itself",
+    "icon": "a small symbol",
+    "divider": "a thin line separating areas; it conveys nothing",
+    "link": "text the user presses to go elsewhere; should raise an event",
+    "badge": "a small label such as a count or status",
+    "avatar": "a round picture of a person or account",
 }
 
 # How an image generator should call each type.
 _VISUAL_KIND = {
     "heading": "heading text", "text": "text", "button": "button", "input": "text input field",
     "image": "image placeholder", "list": "list", "nav": "navigation bar", "container": "panel",
+    "textarea": "multi-line text input", "checkbox": "checkbox", "radio": "radio button",
+    "toggle": "on/off switch", "select": "dropdown menu", "slider": "slider", "tabs": "row of tabs",
+    "card": "card panel", "table": "table", "modal": "dialog box", "icon": "icon",
+    "divider": "thin divider line", "link": "text link", "badge": "small badge", "avatar": "round avatar",
 }
 
 

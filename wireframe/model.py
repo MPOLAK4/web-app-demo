@@ -13,11 +13,26 @@ import json
 import os
 import tempfile
 
-BLOCK_TYPES = ("heading", "text", "button", "input", "image", "list", "nav", "container")
+from . import styles as _styles
 
+BLOCK_TYPES = (
+    "heading", "text", "button", "input", "image", "list", "nav", "container",
+    # Round 2 (R8)
+    "textarea", "checkbox", "radio", "toggle", "select", "slider", "tabs", "card",
+    "table", "modal", "icon", "divider", "link", "badge", "avatar",
+)
+
+# Canvas sizes (width, height) for update_wireframe(preset=...) (R8(c)).
+DEVICE_PRESETS = {"phone": (390, 844), "tablet": (820, 1180), "desktop": (1280, 800)}
+
+# Required fields, then the optional ones added in Round 2. Optional means a
+# Round 1 file (without them) is still valid.
 _DOC_FIELDS = {"name", "canvas", "initial", "states", "transitions"}
+_DOC_OPTIONAL = {"styles"}
 _STATE_FIELDS = {"id", "title", "final", "blocks"}
+_STATE_OPTIONAL = {"background"}
 _BLOCK_FIELDS = {"id", "type", "x", "y", "w", "h", "label", "info", "note", "event"}
+_BLOCK_OPTIONAL = {"style", "look", "placeholder", "options", "value", "disabled", "hidden", "required"}
 _TRANSITION_FIELDS = {"id", "source", "target", "event", "guard"}
 
 
@@ -47,11 +62,11 @@ def _is_int(value):
     return isinstance(value, int) and not isinstance(value, bool)
 
 
-def _check_fields(obj, allowed, path, errors):
+def _check_fields(obj, required, path, errors, optional=()):
     for key in obj:
-        if key not in allowed:
+        if key not in required and key not in optional:
             errors.append(f"{path}: unknown field '{key}'")
-    for key in allowed:
+    for key in required:
         if key not in obj:
             errors.append(f"{path}: missing field '{key}'")
 
@@ -75,7 +90,7 @@ def _validate_block(block, path, errors):
     if not isinstance(block, dict):
         errors.append(f"{path}: must be an object")
         return
-    _check_fields(block, _BLOCK_FIELDS, path, errors)
+    _check_fields(block, _BLOCK_FIELDS, path, errors, _BLOCK_OPTIONAL)
     _check_str(block, "id", path, errors, nonempty=True)
     if "type" in block and block["type"] not in BLOCK_TYPES:
         errors.append(f"{path}.type: must be one of {', '.join(BLOCK_TYPES)}")
@@ -91,6 +106,18 @@ def _validate_block(block, path, errors):
         info = block["info"]
         if not isinstance(info, list) or not all(isinstance(k, str) and k.strip() for k in info):
             errors.append(f"{path}.info: must be a list of non-empty strings")
+    # Round 2 optional fields (R6, R7, R8)
+    for key in ("style", "placeholder", "value"):
+        _check_str(block, key, path, errors)
+    if "look" in block:
+        _styles.validate_style(block["look"], f"{path}.look", errors)
+    if "options" in block:
+        options = block["options"]
+        if not isinstance(options, list) or not all(isinstance(o, str) and o.strip() for o in options):
+            errors.append(f"{path}.options: must be a list of non-empty strings")
+    for key in ("disabled", "hidden", "required"):
+        if key in block and not isinstance(block[key], bool):
+            errors.append(f"{path}.{key}: must be true or false")
 
 
 def validate(doc):
@@ -98,7 +125,7 @@ def validate(doc):
     if not isinstance(doc, dict):
         return ["document: must be a JSON object"]
     errors = []
-    _check_fields(doc, _DOC_FIELDS, "document", errors)
+    _check_fields(doc, _DOC_FIELDS, "document", errors, _DOC_OPTIONAL)
     _check_str(doc, "name", "document", errors)
     _check_str(doc, "initial", "document", errors)
 
@@ -111,6 +138,17 @@ def validate(doc):
                 if not (_is_int(canvas[key]) and canvas[key] > 0):
                     errors.append(f"canvas.{key}: must be a positive integer")
 
+    if "styles" in doc:
+        table = doc["styles"]
+        if not isinstance(table, dict):
+            errors.append("styles: must be an object of name -> style")
+        else:
+            for name, style in table.items():
+                if not isinstance(name, str) or not name.strip():
+                    errors.append("styles: every style name must be a non-empty string")
+                else:
+                    _styles.validate_style(style, f"styles.{name}", errors)
+
     states = doc.get("states")
     if "states" in doc:
         if not isinstance(states, list):
@@ -122,7 +160,9 @@ def validate(doc):
                 if not isinstance(st, dict):
                     errors.append(f"{path}: must be an object")
                     continue
-                _check_fields(st, _STATE_FIELDS, path, errors)
+                _check_fields(st, _STATE_FIELDS, path, errors, _STATE_OPTIONAL)
+                if "background" in st and not _styles.is_colour(st["background"]):
+                    errors.append(f"{path}.background: {_styles.COLOUR_MESSAGE}")
                 _check_str(st, "id", path, errors, nonempty=True)
                 _check_str(st, "title", path, errors)
                 _check_unique_id(st, seen_states, path, errors)

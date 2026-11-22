@@ -10,7 +10,11 @@
 // like "<script>" is shown as text and cannot run as code.
 "use strict";
 
-const BLOCK_TYPES = ["heading", "text", "button", "input", "image", "list", "nav", "container"];
+const BLOCK_TYPES = [
+  "heading", "text", "button", "input", "image", "list", "nav", "container",
+  "textarea", "checkbox", "radio", "toggle", "select", "slider", "tabs", "card",
+  "table", "modal", "icon", "divider", "link", "badge", "avatar",
+];
 
 let doc = null;        // the wireframe, exactly as the server last sent it
 let current = null;    // id of the state (screen) being shown
