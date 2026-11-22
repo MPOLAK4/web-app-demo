@@ -21,6 +21,8 @@ API (JSON unless noted):
     GET  /api/ping             {"ok": true, "idle_timeout": N}; any request counts as a ping
     POST /api/shutdown         stop the server after replying (R12)
     GET  /api/viewer?download=1  the clickable viewer .html for this wireframe (R13)
+    GET  /api/examples           the example library: name, title, summary (R14)
+    GET  /api/example?name=N     one example with its expected output (R14); read-only
 Everything else is a static file from static/.
 
 Lifetime (R12): if no request arrives for --idle-timeout seconds (default 300, five
@@ -42,7 +44,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlsplit
 
-from wireframe import checks, data, model, ops, play, render, serverctl, spec, styles, viewer
+from wireframe import checks, data, examples, model, ops, play, render, serverctl, spec, styles, viewer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MAX_BODY = 1_000_000  # bytes; a wireframe is a few KB, so this is generous
@@ -262,6 +264,19 @@ def make_server(path, host="127.0.0.1", port=8000, static_dir=None, quiet=False,
                         headers.append(("Content-Disposition", f'attachment; filename="{stem}.html"'))
                     return self.send_bytes(200, viewer.build_viewer(doc).encode("utf-8"),
                                            "text/html; charset=utf-8", headers)
+                if route == ("GET", "/api/examples"):
+                    return self.send_json(200, examples.list_examples())
+                if route == ("GET", "/api/example"):
+                    # Read-only: never touches the lock or the server's wireframe file.
+                    name = parse_qs(url.query).get("name", [""])[0]
+                    doc = examples.get_example(name)       # unknown or empty: WireframeError -> 400
+                    io = examples.example_io(name)
+                    meta = [e for e in examples.list_examples() if e["name"] == name][0]
+                    findings = checks.check(doc)
+                    return self.send_json(200, {**meta, "wireframe": doc, "coder": io["coder"],
+                                                "image": io["image"], "svg": io["svg"],
+                                                "check": {"findings": findings,
+                                                          "has_errors": checks.has_errors(findings)}})
                 if route == ("GET", "/api/guide"):
                     return self.send_bytes(200, spec.authoring_guide().encode("utf-8"),
                                            "text/markdown; charset=utf-8")
@@ -272,7 +287,7 @@ def make_server(path, host="127.0.0.1", port=8000, static_dir=None, quiet=False,
                 self.drain_body()      # we are about to refuse; do not leave a body unread
                 known = {"/api/wireframe", "/api/op", "/api/check", "/api/spec", "/api/guide",
                          "/api/play", "/api/resolved", "/api/lines", "/api/render", "/api/ping",
-                         "/api/shutdown", "/api/viewer"}
+                         "/api/shutdown", "/api/viewer", "/api/examples", "/api/example"}
                 if url.path in known:
                     return self.send_errors(405, [f"{method} is not allowed on {url.path}"])
                 return self.send_errors(404, [f"no such endpoint {url.path}"])

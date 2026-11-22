@@ -1,6 +1,8 @@
 """Command line: the headless way to use a wireframe file (R1-R4).
 
-    python -m wireframe new FILE [--name NAME] [--example]
+    python -m wireframe new FILE [--name NAME] [--example [NAME]]
+    python -m wireframe examples [NAME] [--part wireframe|coder|image|check|svg|viewer]
+                                 [--state ID] [--build DIR]
     python -m wireframe validate FILE
     python -m wireframe check FILE
     python -m wireframe export FILE [--mode coder|image] [--data debug|live]
@@ -25,8 +27,31 @@ import json
 import os
 import sys
 
-from . import checks, data, model, ops, play, render, serverctl, spec, viewer
-from .example import example_wireframe
+from . import checks, data, examples, model, ops, play, render, serverctl, spec, viewer
+
+
+EXAMPLE_PARTS = ("wireframe", "coder", "image", "check", "svg", "viewer")
+
+
+def _examples(args):
+    """R14(g). Returns the exit code; prints nothing to stdout on failure."""
+    if args.build:
+        examples.write_files(args.build)
+        print(f"Wrote {len(examples.build_files())} files under {args.build}")
+        return 0
+    if not args.name:
+        for e in examples.list_examples():
+            print(f"{e['name']:10} {e['summary']}")
+        return 0
+    io = examples.example_io(args.name)          # unknown name: WireframeError -> exit 1
+    if args.part == "svg":
+        state_id = args.state or next(iter(io["svg"]))
+        if state_id not in io["svg"]:
+            return _fail([f"unknown screen '{state_id}'; use one of: {', '.join(io['svg'])}"])
+        print(io["svg"][state_id], end="")
+    else:
+        print(io[args.part], end="")
+    return 0
 
 
 def _fail(errors):
@@ -42,7 +67,8 @@ def _build_parser():
     p = sub.add_parser("new", help="create a wireframe file")
     p.add_argument("file")
     p.add_argument("--name", default="Untitled")
-    p.add_argument("--example", action="store_true", help="start from the worked checkout example")
+    p.add_argument("--example", nargs="?", const="checkout", metavar="NAME",
+                   help="start from an example (R14); a bare --example means checkout")
 
     for name, text in (("validate", "check the file's format (R3)"),
                        ("check", "check the design for conflicts and duplicate info (R4, R5)")):
@@ -78,6 +104,13 @@ def _build_parser():
     p = sub.add_parser("viewer", help="write a clickable HTML file that shows the wireframe, no server needed (R13)")
     p.add_argument("file")
     p.add_argument("--out", help="write here instead of printing (an existing file is replaced)")
+
+    p = sub.add_parser("examples", help="list the example wireframes, or print one part of one (R14)")
+    p.add_argument("name", nargs="?", help="an example name; leave out to list them all")
+    p.add_argument("--part", choices=EXAMPLE_PARTS, default="wireframe",
+                   help="which part to print (default wireframe, the input)")
+    p.add_argument("--state", help="with --part svg: the screen to print (default: the first)")
+    p.add_argument("--build", metavar="DIR", help="write every example's files into DIR instead")
 
     p = sub.add_parser("start", help="start the editor server in the background (R12)")
     p.add_argument("file", nargs="?", default="wireframe.json")
@@ -159,7 +192,7 @@ def main(argv=None):
         if args.command == "new":
             if os.path.exists(args.file):
                 return _fail([f"{args.file} already exists; refusing to overwrite it"])
-            doc = example_wireframe() if args.example else model.new_wireframe(args.name)
+            doc = examples.get_example(args.example) if args.example else model.new_wireframe(args.name)
             model.save(doc, args.file)
             print(f"Created {args.file}")
         elif args.command == "validate":
@@ -182,6 +215,8 @@ def main(argv=None):
             print("ok")
         elif args.command == "render":
             return _render(args)
+        elif args.command == "examples":
+            return _examples(args)
         elif args.command == "viewer":
             _write_or_print(viewer.build_viewer(model.load(args.file)), args.out)
         elif args.command == "start":
