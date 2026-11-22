@@ -533,11 +533,11 @@ What the review found:
   the built `examples/` folder and `viewer.html` are byte-for-byte what they were.
 - (b) **One way to discard a request body.** `read_json_body` uses `drain_body`. A body over
   the size limit is still read and thrown away, then answered with 413.
-- (c) **One route table.** `server.py` lists every route once, as (method, path) -> handler.
+- (c) **One route table.** `server.py` lists every route once, as (method, path) -> handler, as the module-level dict `server.ROUTES`.
   The 405 check is derived from that table: a path in the table used with another method
   gives 405, any other `/api/` path gives 404. Adding a route needs one new table entry.
 - (d) **One download-name helper.** `/api/render` and `/api/viewer` build the
-  `Content-Disposition` name with the same function, and give the same names as before
+  `Content-Disposition` name with the same function, `server.download_name(wireframe_name, part, extension)`, and give the same names as before
   (`<name>-<state>.<format>`, `<name>-viewer.html`).
 - (e) **One default idle timeout.** `serverctl.DEFAULT_IDLE_TIMEOUT` is the only definition;
   `server.py` uses it.
