@@ -7,11 +7,12 @@ from wireframe import checks, model, spec
 from wireframe.example import example_wireframe
 from helpers import block, doc, state, transition
 
-# Every finding code listed in spec.md (R4 and R5).
+# Every finding code listed in spec.md (R4, R5 and R6/R7).
 SPEC_CODES = {
     "no-initial", "unknown-state", "unreachable-state", "dead-end", "nondeterministic",
     "unguarded-overlap", "dead-control", "no-trigger", "button-without-event", "overlap",
     "out-of-canvas", "duplicate-info", "duplicate-label", "missing-info",
+    "missing-style", "unknown-style", "unused-style",
 }
 
 

@@ -6,9 +6,11 @@ tested, the example the guide shows can never be invalid.
 """
 
 
-def _block(id, type, x, y, w, h, label, info, event="", note=""):
+def _block(id, type, x, y, w, h, label, info, event="", note="", style=None):
+    # Every block names a shared style, so the example is finding-free (R7).
+    style = style or {"heading": "heading", "button": "primary"}.get(type, "body")
     return {"id": id, "type": type, "x": x, "y": y, "w": w, "h": h,
-            "label": label, "info": info, "note": note, "event": event}
+            "label": label, "info": info, "note": note, "event": event, "style": style}
 
 
 def example_wireframe():
@@ -16,6 +18,11 @@ def example_wireframe():
         "name": "Checkout",
         "canvas": {"width": 800, "height": 600},
         "initial": "cart",
+        "styles": {
+            "heading": {"font_size": 28, "text_color": "#1a2b4c"},
+            "primary": {"fill": "#2a6cf0", "text_color": "#ffffff", "radius": 8},
+            "body": {"fill": "#f7f8fa", "border_color": "#c9ced8"},
+        },
         "states": [
             {"id": "cart", "title": "Cart", "final": False, "blocks": [
                 _block("title", "heading", 20, 20, 400, 40, "Your cart", ["cart.title"]),

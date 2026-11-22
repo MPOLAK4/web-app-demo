@@ -28,12 +28,15 @@ RULES = {
     "dead-control": ("error", "a block that raises an event needs a transition from its state for it."),
     "no-trigger": ("error", "a transition's event (unless it starts with 'sys:') must be raised by "
                             "a block in its source state."),
-    "button-without-event": ("warning", "a button must raise an event."),
-    "overlap": ("warning", "blocks on one screen must not overlap (a container may fully hold others)."),
+    "button-without-event": ("warning", "a button or link must raise an event."),
+    "overlap": ("warning", "visible blocks on one screen must not overlap (a container, card or modal may fully hold others)."),
     "out-of-canvas": ("warning", "blocks must lie fully inside the canvas."),
     "duplicate-info": ("warning", "no two blocks on one screen may carry the same info key."),
     "duplicate-label": ("warning", "no two blocks on one screen may have the same label."),
-    "missing-info": ("warning", "every block except a container needs info keys or a note."),
+    "missing-info": ("warning", "every block except container, card, modal and divider needs info keys or a note."),
+    "missing-style": ("warning", "every block needs a named style or a look of its own."),
+    "unknown-style": ("error", "a block's style must name a style in 'styles'."),
+    "unused-style": ("warning", "every named style should be used by at least one block."),
 }
 
 
@@ -135,9 +138,9 @@ def _flow_findings(doc):
                                         f"block '{b['id']}' raises '{event}' but no transition "
                                         f"from '{s['id']}' handles it",
                                         state=s["id"], blocks=[b["id"]]))
-            elif b["type"] == "button":
+            elif b["type"] in ("button", "link"):
                 out.append(_finding("warning", "button-without-event",
-                                    f"button '{b['id']}' raises no event, so it can do nothing",
+                                    f"{b['type']} '{b['id']}' raises no event, so it can do nothing",
                                     state=s["id"], blocks=[b["id"]]))
         for t in leaving:
             event = t["event"].strip()
@@ -151,13 +154,17 @@ def _flow_findings(doc):
 
 # ---- layout ----------------------------------------------------------------
 
+_HOLDERS = ("container", "card", "modal")
+_STRUCTURE = ("container", "card", "modal", "divider")     # need no info keys
+
+
 def _overlaps(a, b):
     return a["x"] < b["x"] + b["w"] and b["x"] < a["x"] + a["w"] \
         and a["y"] < b["y"] + b["h"] and b["y"] < a["y"] + a["h"]
 
 
 def _holds(outer, inner):
-    return outer["type"] == "container" \
+    return outer["type"] in _HOLDERS \
         and outer["x"] <= inner["x"] and outer["y"] <= inner["y"] \
         and inner["x"] + inner["w"] <= outer["x"] + outer["w"] \
         and inner["y"] + inner["h"] <= outer["y"] + outer["h"]
@@ -168,13 +175,14 @@ def _layout_findings(doc):
     width, height = doc["canvas"]["width"], doc["canvas"]["height"]
     for s in doc["states"]:
         blocks = s["blocks"]
+        visible = [b for b in blocks if not b.get("hidden")]
         for b in blocks:
             if b["x"] < 0 or b["y"] < 0 or b["x"] + b["w"] > width or b["y"] + b["h"] > height:
                 out.append(_finding("warning", "out-of-canvas",
                                     f"block '{b['id']}' is not fully inside the {width}x{height} canvas",
                                     state=s["id"], blocks=[b["id"]]))
-        for i, a in enumerate(blocks):
-            for b in blocks[i + 1:]:
+        for i, a in enumerate(visible):
+            for b in visible[i + 1:]:
                 if _overlaps(a, b) and not _holds(a, b) and not _holds(b, a):
                     out.append(_finding("warning", "overlap",
                                         f"blocks '{a['id']}' and '{b['id']}' overlap",
@@ -198,7 +206,7 @@ def _info_findings(doc):
             label = _normalise_label(b["label"])
             if label:
                 by_label.setdefault(label, []).append(b["id"])
-            if b["type"] != "container" and not b["info"] and not b["note"].strip():
+            if b["type"] not in _STRUCTURE and not b["info"] and not b["note"].strip():
                 out.append(_finding("warning", "missing-info",
                                     f"block '{b['id']}' has no info keys and no note, so a reader "
                                     f"cannot tell what it conveys",
@@ -216,7 +224,31 @@ def _info_findings(doc):
     return out
 
 
+def _style_findings(doc):
+    out = []
+    named = doc.get("styles", {})
+    used = set()
+    for s in doc["states"]:
+        for b in s["blocks"]:
+            name = b.get("style") or ""
+            if name:
+                used.add(name)
+                if name not in named:
+                    out.append(_finding("error", "unknown-style",
+                                        f"block '{b['id']}' uses style '{name}', which does not exist",
+                                        state=s["id"], blocks=[b["id"]]))
+            elif not b.get("look"):
+                out.append(_finding("warning", "missing-style",
+                                    f"block '{b['id']}' has no style and no look, so its design "
+                                    f"is only a default", state=s["id"], blocks=[b["id"]]))
+    for name in named:
+        if name not in used:
+            out.append(_finding("warning", "unused-style", f"style '{name}' is used by no block"))
+    return out
+
+
 def check(doc):
     """All findings for a (shape-valid) wireframe, errors first."""
-    findings = _flow_findings(doc) + _layout_findings(doc) + _info_findings(doc)
+    findings = _flow_findings(doc) + _layout_findings(doc) + _info_findings(doc) \
+        + _style_findings(doc)
     return sorted(findings, key=lambda f: (f["severity"] != "error", f["code"], f["state"] or "", f["message"]))
