@@ -45,6 +45,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlsplit
 
 from wireframe import checks, data, examples, model, ops, play, render, serverctl, spec, styles, viewer
+from wireframe.serverctl import DEFAULT_IDLE_TIMEOUT  # seconds: five minutes (R12); defined once, there
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MAX_BODY = 1_000_000  # bytes; a wireframe is a few KB, so this is generous
@@ -60,7 +61,6 @@ CONTENT_TYPES = {
     ".ico": "image/x-icon",
 }
 LOCAL_HOSTS = {"127.0.0.1", "localhost"}
-DEFAULT_IDLE_TIMEOUT = 300  # seconds: five minutes (R12)
 
 
 def make_server(path, host="127.0.0.1", port=8000, static_dir=None, quiet=False,
