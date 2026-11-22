@@ -87,7 +87,7 @@ the browser cannot be unit-tested this way; try them by hand.
 | `CLAUDE.md` | Instructions the coding assistant follows in this project. |
 | `.gitignore` | Files git must never track (transcripts, secrets, virtual environments, `wireframe.json`). |
 | `.gitattributes` | Keeps `tests/` out of release archives (`git archive`). |
-| `server.py` | The small local Python server (standard library only): JSON API plus the static files. |
+| `server.py` | The small local Python server (standard library only): JSON API plus the static files. Every route is one line in the `ROUTES` table at the top (Round 6, R16). |
 | `static/` | The browser editor: `index.html`, `style.css`, `app.js`. |
 | `wireframe/` | The Python package: `model.py` (data and validation), `ops.py` (edits), `checks.py` (R4/R5 checks), `spec.py` (exports and AI guide), `data.py` (standins), `render.py` (SVG/HTML files), `play.py` (Play logic), `cli.py` (command line), `example.py` (the checkout example), `examples.py` (the example library, R14). |
 | `examples/` | Built files: each example's wireframe-derived coder spec, image brief, check result, SVGs and viewer. Rebuild with `python -m wireframe examples --build examples`. |
