@@ -22,6 +22,13 @@ Problems panel updates after every edit. "Spec for coder" and "Spec for image AI
 the exports; "AI guide" shows what to give an AI so it can write a wireframe, and
 "Import JSON" checks and loads what the AI wrote.
 
+Round 2 adds: named styles (panel under the screen list; "Use" gives a style to the
+selected blocks), 23 block types and extra block fields in the inspector, a device
+size and a background colour per screen, a snap grid, resizing from all four
+corners, shift-click to select several blocks, Duplicate and stacking buttons, and
+a **Play** button that lets you click through the flow (Back, Restart, path log;
+it never changes the file).
+
 ## Headless use (no browser)
 
     python -m wireframe new my.json --example     # a 3-screen checkout example
@@ -30,6 +37,8 @@ the exports; "AI guide" shows what to give an AI so it can write a wireframe, an
     python -m wireframe export my.json --mode coder    # or --mode image
     python -m wireframe guide                     # guide for an AI author
     python -m wireframe op my.json '{"op": "add_state", "title": "Receipt"}'
+
+    python -m wireframe walk my.json go back      # follow events like a user; EVENT=ID picks a guarded option
 
 The browser and these commands edit the same JSON file with the same code
 ([decision 0001](docs/decisions/0001-one-apply-op-for-every-edit.md)).
