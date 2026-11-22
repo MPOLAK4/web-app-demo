@@ -14,10 +14,11 @@ apply_op(), so they cannot disagree about what an edit means.
 import copy
 import inspect
 
-from .model import WireframeError, require_valid
+from .model import DEVICE_PRESETS, WireframeError, require_valid
 
-_BLOCK_EDITABLE = {"type", "x", "y", "w", "h", "label", "info", "note", "event"}
-_STATE_EDITABLE = {"title", "final"}
+_BLOCK_EDITABLE = {"type", "x", "y", "w", "h", "label", "info", "note", "event",
+                   "style", "look", "placeholder", "options", "value", "disabled", "hidden", "required"}
+_STATE_EDITABLE = {"title", "final", "background"}
 _TRANSITION_EDITABLE = {"source", "target", "event", "guard"}
 
 
@@ -53,8 +54,13 @@ def _apply_fields(target, fields, editable, what):
 
 # ---- wireframe ---------------------------------------------------------
 
-def update_wireframe(doc, name=None, initial=None, width=None, height=None):
+def update_wireframe(doc, name=None, initial=None, width=None, height=None, preset=None):
+    """`preset` (phone, tablet, desktop) sets the canvas size; an explicit width/height wins."""
     new = copy.deepcopy(doc)
+    if preset is not None:
+        if preset not in DEVICE_PRESETS:
+            raise WireframeError(f"unknown preset '{preset}'; choose one of: {', '.join(DEVICE_PRESETS)}")
+        new["canvas"]["width"], new["canvas"]["height"] = DEVICE_PRESETS[preset]
     if name is not None:
         new["name"] = name
     if initial is not None:
@@ -95,13 +101,16 @@ def delete_state(doc, id):
 
 # ---- blocks ------------------------------------------------------------
 
-def add_block(doc, state, type, x=20, y=20, w=160, h=40, label="", info=None, note="", event="", id=None):
+def add_block(doc, state, type, x=20, y=20, w=160, h=40, label="", info=None, note="", event="", id=None,
+              style=None):
     new = copy.deepcopy(doc)
     st = _state(new, state)
     if id is None:
         id = _fresh_id("b", {b["id"] for b in st["blocks"]})
     st["blocks"].append({"id": id, "type": type, "x": x, "y": y, "w": w, "h": h,
                          "label": label, "info": list(info or []), "note": note, "event": event})
+    if style is not None:       # new field is only written when used (Round 1 shape stays)
+        st["blocks"][-1]["style"] = style
     return _finish(new)
 
 
@@ -117,6 +126,96 @@ def delete_block(doc, state, id):
     st = _state(new, state)
     _find(st["blocks"], id, "block")
     st["blocks"] = [b for b in st["blocks"] if b["id"] != id]
+    return _finish(new)
+
+
+def duplicate_block(doc, state, id):
+    """Copy a block 20 px right and down, with a new id, on top of the others."""
+    new = copy.deepcopy(doc)
+    st = _state(new, state)
+    twin = copy.deepcopy(_find(st["blocks"], id, "block"))
+    twin["id"] = _fresh_id("b", {b["id"] for b in st["blocks"]})
+    twin["x"] += 20
+    twin["y"] += 20
+    st["blocks"].append(twin)
+    return _finish(new)
+
+
+def reorder_block(doc, state, id, where):
+    """Stacking order is list order (last = on top). where: front, back, forward, backward."""
+    if where not in ("front", "back", "forward", "backward"):
+        raise WireframeError(f"unknown position '{where}'; choose front, back, forward or backward")
+    new = copy.deepcopy(doc)
+    blocks = _state(new, state)["blocks"]
+    block = _find(blocks, id, "block")
+    i = blocks.index(block)
+    blocks.pop(i)
+    j = {"front": len(blocks), "back": 0,
+         "forward": min(i + 1, len(blocks)), "backward": max(i - 1, 0)}[where]
+    blocks.insert(j, block)
+    return _finish(new)
+
+
+def move_blocks(doc, state, ids, dx, dy):
+    """Move several blocks by the same whole-number offset (all or nothing)."""
+    if not isinstance(ids, list):
+        raise WireframeError("ids must be a list of block ids")
+    for d in (dx, dy):
+        if not isinstance(d, int) or isinstance(d, bool):
+            raise WireframeError("dx and dy must be whole numbers")
+    new = copy.deepcopy(doc)
+    blocks = _state(new, state)["blocks"]
+    for bid in ids:
+        b = _find(blocks, bid, "block")
+        b["x"] += dx
+        b["y"] += dy
+    return _finish(new)
+
+
+# ---- shared styles (R7) -------------------------------------------------
+
+def add_style(doc, name, style=None):
+    if not isinstance(name, str) or not name.strip():
+        raise WireframeError("a style needs a non-empty name")
+    new = copy.deepcopy(doc)
+    named = new.setdefault("styles", {})
+    if name in named:
+        raise WireframeError(f"style '{name}' already exists")
+    named[name] = dict(style or {})
+    return _finish(new)
+
+
+def update_style(doc, name, style):
+    """Replace the fields of a style; every block using it changes with it."""
+    new = copy.deepcopy(doc)
+    if name not in new.get("styles", {}):
+        raise WireframeError(f"no style named '{name}'")
+    new["styles"][name] = dict(style)
+    return _finish(new)
+
+
+def delete_style(doc, name):
+    """Remove a style. Its fields are copied into each user's `look`, so nothing changes visually."""
+    new = copy.deepcopy(doc)
+    if name not in new.get("styles", {}):
+        raise WireframeError(f"no style named '{name}'")
+    fields = new["styles"].pop(name)
+    for st in new["states"]:
+        for b in st["blocks"]:
+            if b.get("style") == name:
+                b["style"] = ""
+                b["look"] = {**fields, **(b.get("look") or {})}
+    return _finish(new)
+
+
+def set_style(doc, state, ids, style):
+    """Mark blocks as using a named style ('' clears it)."""
+    new = copy.deepcopy(doc)
+    if style and style not in new.get("styles", {}):
+        raise WireframeError(f"no style named '{style}'")
+    blocks = _state(new, state)["blocks"]
+    for bid in ids:
+        _find(blocks, bid, "block")["style"] = style
     return _finish(new)
 
 
@@ -148,7 +247,8 @@ def delete_transition(doc, id):
 
 OPS = {fn.__name__: fn for fn in (
     update_wireframe, add_state, update_state, delete_state,
-    add_block, update_block, delete_block,
+    add_block, update_block, delete_block, duplicate_block, reorder_block, move_blocks,
+    add_style, update_style, delete_style, set_style,
     add_transition, update_transition, delete_transition,
 )}
 
