@@ -9,6 +9,13 @@
     python -m wireframe walk FILE [EVENT[=TRANSITION_ID] ...]
     python -m wireframe render FILE [--state ID | --after EVENT[=ID] ...] [--format svg|html]
                                     [--data debug|live] [--out PATH]
+    python -m wireframe viewer FILE [--out PATH]
+    python -m wireframe start [FILE] [--port N] [--idle-timeout SECONDS] [--state-file PATH]
+    python -m wireframe stop [--state-file PATH]
+    python -m wireframe status [--state-file PATH]
+
+`start` runs the editor server in the background (R12); `stop` ends it. Everything
+else here needs no server at all.
 
 Exit codes: 0 success, 1 a problem was found or the command failed.
 """
@@ -18,7 +25,7 @@ import json
 import os
 import sys
 
-from . import checks, data, model, ops, play, render, spec
+from . import checks, data, model, ops, play, render, serverctl, spec, viewer
 from .example import example_wireframe
 
 
@@ -67,6 +74,23 @@ def _build_parser():
     p.add_argument("--format", choices=render.FORMATS, default="svg")
     p.add_argument("--data", choices=data.MODES, default="debug")
     p.add_argument("--out", help="write here instead of printing (an existing file is replaced)")
+
+    p = sub.add_parser("viewer", help="write a clickable HTML file that shows the wireframe, no server needed (R13)")
+    p.add_argument("file")
+    p.add_argument("--out", help="write here instead of printing (an existing file is replaced)")
+
+    p = sub.add_parser("start", help="start the editor server in the background (R12)")
+    p.add_argument("file", nargs="?", default="wireframe.json")
+    p.add_argument("--port", type=int, default=0, help="0 (default) picks any free port")
+    p.add_argument("--idle-timeout", type=float, default=serverctl.DEFAULT_IDLE_TIMEOUT, metavar="SECONDS",
+                   help="the server stops itself after this long without a request (default 300)")
+    p.add_argument("--state-file", default=serverctl.DEFAULT_STATE_FILE,
+                   help=f"where the server records itself (default {serverctl.DEFAULT_STATE_FILE})")
+    for name, text in (("stop", "stop the background server (R12)"),
+                       ("status", "say whether a background server is running (R12)")):
+        p = sub.add_parser(name, help=text)
+        p.add_argument("--state-file", default=serverctl.DEFAULT_STATE_FILE,
+                       help=f"where the server records itself (default {serverctl.DEFAULT_STATE_FILE})")
     return parser
 
 
@@ -120,6 +144,15 @@ def _render(args):
     return 0
 
 
+def _write_or_print(text, out):
+    if out:
+        with open(out, "w", encoding="utf-8", newline="\n") as f:
+            f.write(text)
+        print(f"Wrote {out}")
+    else:
+        print(text, end="")
+
+
 def main(argv=None):
     args = _build_parser().parse_args(argv)
     try:
@@ -149,6 +182,18 @@ def main(argv=None):
             print("ok")
         elif args.command == "render":
             return _render(args)
+        elif args.command == "viewer":
+            _write_or_print(viewer.build_viewer(model.load(args.file)), args.out)
+        elif args.command == "start":
+            info, already = serverctl.start(args.file, args.port, args.idle_timeout, args.state_file)
+            print(f"Server {'already running' if already else 'running'} at {info['url']} "
+                  f"(editing {info['file']}).")
+            print("It stops itself after a quiet spell; to stop it now run: python -m wireframe stop")
+        elif args.command == "stop":
+            print(serverctl.stop(args.state_file))
+        elif args.command == "status":
+            url = serverctl.status(args.state_file)
+            print(f"Server running at {url}" if url else "No server is running (not running).")
         elif args.command == "walk":
             return _walk(model.load(args.file), args.events)
     except model.WireframeError as exc:

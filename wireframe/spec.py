@@ -338,6 +338,18 @@ Check your file with `python -m wireframe validate FILE` (the format) and
 `PUT /api/wireframe` to a running server. A malformed wireframe is rejected with
 a list of errors that each say where the problem is.
 
+## Servers: prefer none
+
+Everything above works from the command line with **no server**: `validate`, `check`,
+`export`, `render`, `walk`, `op` and `viewer` (a clickable `.html` of the wireframe).
+Use those first. Only start the editor server when a person needs the browser editor:
+
+- `python -m wireframe start FILE` runs it in the background and prints its URL.
+- `python -m wireframe stop` shuts it down. **Always stop a server you started.**
+- `python -m wireframe status` says whether one is running.
+
+A server also stops itself after 5 minutes with no requests, but do not rely on that.
+
 ## Complete example
 
 ```json

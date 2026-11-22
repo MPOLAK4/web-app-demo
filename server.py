@@ -1,6 +1,6 @@
 """A small local web server for the wireframe editor (standard library only).
 
-    python server.py [FILE] [--port 8000]
+    python server.py [FILE] [--port 8000] [--idle-timeout 300] [--state-file PATH]
 
 FILE (default wireframe.json) is the wireframe. It is the same file the
 command line uses, so the browser and headless tools always agree.
@@ -18,7 +18,14 @@ API (JSON unless noted):
     GET  /api/lines?state=ID&data=debug|live   "blockId" -> the text lines the block shows
     GET  /api/render?state=ID | after=EVENT...&format=svg|html&data=&download=1
                                a picture file of a screen (read-only)
+    GET  /api/ping             {"ok": true, "idle_timeout": N}; any request counts as a ping
+    POST /api/shutdown         stop the server after replying (R12)
+    GET  /api/viewer?download=1  the clickable viewer .html for this wireframe (R13)
 Everything else is a static file from static/.
+
+Lifetime (R12): if no request arrives for --idle-timeout seconds (default 300, five
+minutes) the server stops itself. `python -m wireframe start|stop|status` run it in
+the background and end it again.
 
 Safety: this tool has no login, so it only listens on 127.0.0.1, only accepts
 local Host headers, only accepts writes sent as application/json, and only
@@ -29,11 +36,13 @@ import argparse
 import json
 import mimetypes
 import os
+import sys
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlsplit
 
-from wireframe import checks, data, model, ops, play, render, spec, styles
+from wireframe import checks, data, model, ops, play, render, serverctl, spec, styles, viewer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MAX_BODY = 1_000_000  # bytes; a wireframe is a few KB, so this is generous
@@ -49,10 +58,17 @@ CONTENT_TYPES = {
     ".ico": "image/x-icon",
 }
 LOCAL_HOSTS = {"127.0.0.1", "localhost"}
+DEFAULT_IDLE_TIMEOUT = 300  # seconds: five minutes (R12)
 
 
-def make_server(path, host="127.0.0.1", port=8000, static_dir=None, quiet=False):
-    """Build (but do not start) a server for the wireframe file at `path`."""
+def make_server(path, host="127.0.0.1", port=8000, static_dir=None, quiet=False,
+                idle_timeout=DEFAULT_IDLE_TIMEOUT):
+    """Build (but do not start) a server for the wireframe file at `path`.
+
+    `idle_timeout` is how many seconds without any request `run()` waits before
+    it stops the server (R12). Only `run()` enforces it."""
+    if isinstance(idle_timeout, bool) or not isinstance(idle_timeout, (int, float)) or idle_timeout <= 0:
+        raise ValueError("idle_timeout must be a number of seconds greater than 0")
     static_root = os.path.realpath(static_dir or os.path.join(HERE, "static"))
     lock = threading.Lock()  # one edit at a time: load -> change -> save
 
@@ -131,6 +147,7 @@ def make_server(path, host="127.0.0.1", port=8000, static_dir=None, quiet=False)
 
         # ---- routing ----
         def dispatch(self, method):
+            httpd.last_request = time.monotonic()   # any request, even a refused one, is a ping
             if not self.host_is_local():
                 self.drain_body()
                 return self.send_errors(403, ["requests must use a local Host name"])
@@ -225,6 +242,26 @@ def make_server(path, host="127.0.0.1", port=8000, static_dir=None, quiet=False)
                         doc = model.load_or_create(path)
                     return self.send_json(200, {f"{st['id']}/{b['id']}": styles.resolve_style(doc, b)
                                                 for st in doc["states"] for b in st["blocks"]})
+                if route == ("GET", "/api/ping"):
+                    return self.send_json(200, {"ok": True, "idle_timeout": httpd.idle_timeout})
+                if route == ("POST", "/api/shutdown"):
+                    body = self.read_json_body()
+                    if body is None:
+                        return
+                    self.send_json(200, {"ok": True})
+                    # shutdown() waits for serve_forever() to return, so it must not run on
+                    # the thread that is answering this request.
+                    threading.Thread(target=httpd.shutdown, daemon=True).start()
+                    return
+                if route == ("GET", "/api/viewer"):
+                    with lock:
+                        doc = model.load_or_create(path)
+                    headers = [("X-Content-Type-Options", "nosniff")]
+                    if parse_qs(url.query).get("download", [""])[0] == "1":
+                        stem = "".join(c if c.isalnum() or c in "-_" else "-" for c in f"{doc['name']}-viewer")
+                        headers.append(("Content-Disposition", f'attachment; filename="{stem}.html"'))
+                    return self.send_bytes(200, viewer.build_viewer(doc).encode("utf-8"),
+                                           "text/html; charset=utf-8", headers)
                 if route == ("GET", "/api/guide"):
                     return self.send_bytes(200, spec.authoring_guide().encode("utf-8"),
                                            "text/markdown; charset=utf-8")
@@ -234,7 +271,8 @@ def make_server(path, host="127.0.0.1", port=8000, static_dir=None, quiet=False)
             if url.path.startswith("/api/"):
                 self.drain_body()      # we are about to refuse; do not leave a body unread
                 known = {"/api/wireframe", "/api/op", "/api/check", "/api/spec", "/api/guide",
-                         "/api/play", "/api/resolved", "/api/lines", "/api/render"}
+                         "/api/play", "/api/resolved", "/api/lines", "/api/render", "/api/ping",
+                         "/api/shutdown", "/api/viewer"}
                 if url.path in known:
                     return self.send_errors(405, [f"{method} is not allowed on {url.path}"])
                 return self.send_errors(404, [f"no such endpoint {url.path}"])
@@ -276,23 +314,67 @@ def make_server(path, host="127.0.0.1", port=8000, static_dir=None, quiet=False)
 
     httpd = ThreadingHTTPServer((host, port), Handler)
     httpd.daemon_threads = True
+    httpd.idle_timeout = idle_timeout
+    httpd.last_request = time.monotonic()
     return httpd
+
+
+def run(httpd):
+    """Serve until Ctrl+C, a /api/shutdown request, or `idle_timeout` seconds with no
+    request at all. Always closes the socket before returning (R12)."""
+    done = threading.Event()
+
+    def watch():
+        # Check often enough to stop close to the deadline, but never busy-loop.
+        interval = min(1.0, httpd.idle_timeout / 4)
+        while not done.wait(interval):
+            if time.monotonic() - httpd.last_request >= httpd.idle_timeout:
+                httpd.shutdown()      # makes serve_forever() below return
+                return
+
+    watcher = threading.Thread(target=watch, daemon=True)
+    watcher.start()
+    try:
+        httpd.serve_forever(poll_interval=0.05)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        done.set()
+        httpd.server_close()
 
 
 def main():
     parser = argparse.ArgumentParser(description="Local wireframe editor server")
     parser.add_argument("file", nargs="?", default="wireframe.json", help="wireframe JSON file")
-    parser.add_argument("--port", type=int, default=8000)
+    parser.add_argument("--port", type=int, default=8000, help="0 means any free port")
+    parser.add_argument("--idle-timeout", type=float, default=DEFAULT_IDLE_TIMEOUT, metavar="SECONDS",
+                        help="stop after this many seconds without a request (default 300)")
+    parser.add_argument("--state-file", help="write {pid, port, url, file} here while running (used by `start`)")
     args = parser.parse_args()
-    httpd = make_server(args.file, port=args.port)
+    if args.idle_timeout <= 0:
+        parser.error("--idle-timeout must be greater than 0")
+    if os.path.exists(args.file):
+        try:
+            model.load(args.file)      # refuse to start on a broken file, so `start` can report it
+        except model.WireframeError as exc:
+            for line in exc.errors:
+                print(line, file=sys.stderr)
+            sys.exit(1)
+    httpd = make_server(args.file, port=args.port, idle_timeout=args.idle_timeout)
+    port = httpd.server_address[1]
+    url = f"http://127.0.0.1:{port}"
+    if args.state_file:
+        serverctl.write_state(args.state_file, {"pid": os.getpid(), "port": port, "url": url,
+                                                "file": os.path.abspath(args.file)})
     print(f"Editing {os.path.abspath(args.file)}")
-    print(f"Open http://localhost:{args.port}  (Ctrl+C to stop)")
+    print(f"Open {url}  (Ctrl+C or `python -m wireframe stop` to stop; "
+          f"stops itself after {args.idle_timeout:g}s with no requests)", flush=True)
     try:
-        httpd.serve_forever()
-    except KeyboardInterrupt:
-        print("\nStopped.")
+        run(httpd)
     finally:
-        httpd.server_close()
+        if args.state_file:
+            serverctl.remove_state(args.state_file)
+        print("Stopped.")
 
 
 if __name__ == "__main__":

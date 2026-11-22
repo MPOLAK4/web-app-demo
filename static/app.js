@@ -744,3 +744,11 @@ $("play-restart").onclick = () => { $("play-chooser").replaceChildren(); playSta
 // ---------- end play mode ----------
 
 load();
+
+// Heartbeat (R12): the server stops itself after 5 minutes with no requests, so while
+// this page is open it asks for /api/ping once a minute. A closed tab stops the pings.
+const heartbeat = () => api("GET", "/api/ping").catch(() => {
+  clearInterval(heartbeatTimer);
+  showStatus(["The server has stopped. Start it again with: python -m wireframe start"]);
+});
+const heartbeatTimer = setInterval(heartbeat, 60000);
