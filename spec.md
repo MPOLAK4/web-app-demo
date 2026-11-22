@@ -505,6 +505,46 @@ A *piece* is one screen, or one group of blocks on a screen.
 - (d) Nothing else changes: no new wireframe field, no new check code, older files
   stay valid, and exports stay deterministic (R2(c)).
 
+## Round 6: codebase cleanup (R16)
+
+How I read the unclear part (the author said "a cleanup/refactor, a general codebase
+review"): R16 changes how the code is organised, **not what the application does**. I
+reviewed the code and listed the duplication and dead code below; R16 is exactly that
+list. Nothing new may be added, and nothing the user can see may change.
+
+What the review found:
+
+- `server.py` drains an unwanted request body in two places (`drain_body` and again inline
+  in `read_json_body`).
+- `server.py` builds a download file name the same way in two routes (`/api/render`,
+  `/api/viewer`).
+- `server.py` defines `DEFAULT_IDLE_TIMEOUT = 300` although `serverctl.py` already does.
+- `server.py` routes with a 147-line chain of `if route == ...` and keeps a second,
+  hand-written list of the same paths (`known`) to decide between 404 and 405. Forgetting
+  to update the second list is an easy mistake (CLAUDE.md has a rule warning about it).
+- `wireframe/data.py` imports `is_data_key` only to re-export it; nothing uses it there.
+- `wireframe/cli.py` has the "write to a file or print" code twice (`_render`,
+  `_write_or_print`).
+
+### R16. Cleanup without changing behaviour
+
+- (a) **Nothing observable changes.** Every test from Rounds 1 to 5 still passes, and none
+  was edited to make it pass. API replies, CLI output and exported files are identical, so
+  the built `examples/` folder and `viewer.html` are byte-for-byte what they were.
+- (b) **One way to discard a request body.** `read_json_body` uses `drain_body`. A body over
+  the size limit is still read and thrown away, then answered with 413.
+- (c) **One route table.** `server.py` lists every route once, as (method, path) -> handler.
+  The 405 check is derived from that table: a path in the table used with another method
+  gives 405, any other `/api/` path gives 404. Adding a route needs one new table entry.
+- (d) **One download-name helper.** `/api/render` and `/api/viewer` build the
+  `Content-Disposition` name with the same function, and give the same names as before
+  (`<name>-<state>.<format>`, `<name>-viewer.html`).
+- (e) **One default idle timeout.** `serverctl.DEFAULT_IDLE_TIMEOUT` is the only definition;
+  `server.py` uses it.
+- (f) **No dead code in the files touched.** `wireframe/data.py` no longer imports
+  `is_data_key`, and `cli.py` writes a file or prints through a single helper.
+- (g) The project documents (README index, CLAUDE.md) describe the new structure.
+
 ## Out of scope for this round
 
 - Evaluating guards, simulating user sessions, or checking data values.
@@ -515,6 +555,8 @@ A *piece* is one screen, or one group of blocks on a screen.
 - Renaming a state's `id` after creation (change its `title` instead).
 - Editing in the viewer file, or loading another wireframe into it; a JavaScript port of the Python rules; running Python in the browser.
 - Stopping a server by killing its process; authentication for `shutdown` (it is local-only and JSON-only like every write).
+- Round 6: any new feature, API route, CLI command or output change; refactoring `static/app.js`
+  (it is 750 lines but cannot be tested by clicking here, so it is left alone); renaming public functions.
 - Round 5: storing an iteration count or log in the wireframe, judging whether a pass changed
   anything, a command that saves numbered copies; an example picker in the browser editor
   (an example is opened with `new --example NAME` or `GET /api/example`, or its `viewer.html`).
