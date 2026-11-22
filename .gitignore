@@ -9,6 +9,7 @@ __pycache__/
 
 # The working wireframe the server edits by default (user data, not source)
 wireframe.json
+!examples/**/wireframe.json
 
 # Where `python -m wireframe start` records the background server (R12)
 .wireframe-server.json
