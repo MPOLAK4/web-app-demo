@@ -290,6 +290,8 @@ def authoring_guide():
     types = "\n".join(f"- `{t}`: {TYPE_MEANING[t]}" for t in BLOCK_TYPES)
     rules = "\n".join(f"- `{code}` ({sev}): {text}" for code, (sev, text) in RULES.items())
     example = json.dumps(example_wireframe(), indent=2)
+    from . import examples            # lazy: examples.py imports this module (R14)
+    example_names = ", ".join(f"`{e['name']}`" for e in examples.list_examples())
     sizes = {k: f"{w}x{h}" for k, (w, h) in DEVICE_PRESETS.items()}
     return f"""# How to write a wireframe
 
@@ -382,6 +384,17 @@ A *piece* is one screen, or one group of blocks on a screen. Do not stop at the 
 5. Write one line per pass: `Pass k of N: <what changed>, because <why>; check: <E> errors, <W> warnings`.
 
 This tool does not store or enforce the count: you are responsible for it.
+
+## Examples
+
+Ready-made wireframes, each with the output this tool produces for it, so you can see
+the expected input and output before writing your own: {example_names}.
+
+- `python -m wireframe examples` lists them.
+- `python -m wireframe examples NAME` prints the wireframe (the input).
+- Add `--part coder|image|check|svg|viewer` to print the expected output instead.
+- `python -m wireframe new FILE --example NAME` starts a file from one.
+- `flawed` is broken on purpose: its `check` output shows what each finding looks like.
 
 ## Servers: prefer none
 

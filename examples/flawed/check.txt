@@ -1,0 +1,8 @@
+ERROR   dead-control [inbox]: block 'compose' raises 'compose' but no transition from 'inbox' handles it
+ERROR   dead-end [archive]: state 'archive' has no way out and is not marked final
+WARNING button-without-event [inbox]: button 'settings' raises no event, so it can do nothing
+WARNING duplicate-info [inbox]: information 'inbox.unread' is shown by 2 blocks on this screen: unread, badge
+WARNING duplicate-label [inbox]: the label 'unread inbox unread' appears on 2 blocks on this screen: unread, badge
+WARNING overlap [inbox]: blocks 'messages' and 'promo' overlap
+WARNING unreachable-state [trash]: state 'trash' cannot be reached from 'inbox'
+2 error(s), 5 warning(s).

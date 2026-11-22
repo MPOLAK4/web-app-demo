@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<title>Login (viewer)</title>
+<style>
+  body { margin: 0; font: 14px Arial, Helvetica, sans-serif; background: #eceff1; color: #222; }
+  header { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding: 8px 14px; background: #263238; color: #fff; }
+  header h1 { margin: 0 12px 0 0; font-size: 16px; }
+  header label { display: flex; gap: 4px; align-items: center; }
+  button, a.button { font: inherit; padding: 4px 10px; border: 1px solid #90a4ae; border-radius: 4px; background: #fff; color: #222; cursor: pointer; text-decoration: none; }
+  button:disabled { opacity: .5; cursor: default; }
+  main { display: flex; gap: 14px; padding: 14px; align-items: flex-start; }
+  nav { min-width: 150px; }
+  nav h2, aside h2 { margin: 0 0 6px; font-size: 13px; text-transform: uppercase; color: #546e7a; }
+  nav button { display: block; width: 100%; margin-bottom: 4px; text-align: left; }
+  nav button[aria-current="true"] { background: #263238; color: #fff; }
+  #picture { position: relative; box-shadow: 0 1px 6px rgba(0, 0, 0, .35); background: #fff; flex: none; }
+  #picture img { display: block; }
+  .hotspot { position: absolute; cursor: pointer; border: 0; padding: 0; background: transparent; border-radius: 3px; }
+  .hotspot:hover, .hotspot:focus { outline: 2px solid #1e88e5; background: rgba(30, 136, 229, .15); }
+  aside { min-width: 220px; max-width: 320px; }
+  #event-list button, #choice-box button { display: block; margin-bottom: 4px; }
+  #message { min-height: 2.6em; margin: 8px 0; }
+  #choice-box { margin-bottom: 8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="doc-name"></h1>
+  <label>Data <select id="data-mode"><option value="debug">debug</option><option value="live">live</option></select></label>
+  <button id="btn-back" type="button">Back</button>
+  <button id="btn-restart" type="button">Restart</button>
+  <a id="save-svg" class="button" download="screen.svg">Save SVG</a>
+</header>
+<main>
+  <nav><h2>Screens</h2><div id="screen-list"></div></nav>
+  <div id="picture"></div>
+  <aside>
+    <h2 id="screen-title"></h2>
+    <div id="message" role="status"></div>
+    <div id="choice-box"></div>
+    <h2>Events on this screen</h2>
+    <div id="event-list"></div>
+  </aside>
+</main>
+<script type="application/json" id="wireframe-data">{"name": "Login", "initial": "login", "canvas": {"width": 390, "height": 844}, "order": ["login", "failed", "home"], "states": {"login": {"title": "Sign in", "final": false, "events": ["submit"], "hotspots": [{"x": 20, "y": 320, "w": 350, "h": 48, "event": "submit"}], "steps": {"submit": {"status": "choose", "state": "login", "event": "submit", "options": [{"transition": "t1", "guard": "credentials accepted", "target": "home"}, {"transition": "t2", "guard": "credentials rejected", "target": "failed"}]}}, "svg": {"debug": "\u003csvg xmlns=\"http://www.w3.org/2000/svg\" width=\"390\" height=\"844\" viewBox=\"0 0 390 844\" font-family=\"Arial, Helvetica, sans-serif\">\n\u003cdefs>\u003cfilter id=\"shadow\" x=\"-20%\" y=\"-20%\" width=\"140%\" height=\"150%\">\u003cfeDropShadow dx=\"0\" dy=\"3\" stdDeviation=\"4\" flood-opacity=\"0.3\"/>\u003c/filter>\u003c/defs>\n\u003crect width=\"390\" height=\"844\" fill=\"#ffffff\"/>\n\u003csvg x=\"20\" y=\"60\" width=\"350\" height=\"40\">\u003crect x=\"0.0\" y=\"0.0\" width=\"350\" height=\"40\" rx=\"0\" fill=\"#ffffff\" stroke=\"#667788\" stroke-width=\"0\"/>\u003ctext x=\"4\" y=\"32\" text-anchor=\"start\" font-size=\"28\" font-weight=\"bold\" fill=\"#1a2b4c\" xml:space=\"preserve\">Welcome\u003c/text>\u003c/svg>\n\u003csvg x=\"20\" y=\"140\" width=\"350\" height=\"44\">\u003crect x=\"0.5\" y=\"0.5\" width=\"349\" height=\"43\" rx=\"6\" fill=\"#ffffff\" stroke=\"#c9ced8\" stroke-width=\"1\"/>\u003ctext x=\"4\" y=\"18\" text-anchor=\"start\" font-size=\"14\" font-weight=\"normal\" fill=\"#222222\" xml:space=\"preserve\">Email\u003c/text>\u003ctext x=\"4\" y=\"34.8\" text-anchor=\"start\" font-size=\"14\" font-weight=\"normal\" fill=\"#222222\" xml:space=\"preserve\">you@example.com\u003c/text>\u003c/svg>\n\u003csvg x=\"20\" y=\"200\" width=\"350\" height=\"44\">\u003crect x=\"0.5\" y=\"0.5\" width=\"349\" height=\"43\" rx=\"6\" fill=\"#ffffff\" stroke=\"#c9ced8\" stroke-width=\"1\"/>\u003ctext x=\"4\" y=\"18\" text-anchor=\"start\" font-size=\"14\" font-weight=\"normal\" fill=\"#222222\" xml:space=\"preserve\">Password\u003c/text>\u003ctext x=\"4\" y=\"34.8\" text-anchor=\"start\" font-size=\"14\" font-weight=\"normal\" fill=\"#222222\" xml:space=\"preserve\">\u003c/text>\u003c/svg>\n\u003csvg x=\"20\" y=\"260\" width=\"350\" height=\"32\">\u003crect x=\"0.5\" y=\"0.5\" width=\"349\" height=\"31\" rx=\"6\" fill=\"#ffffff\" stroke=\"#c9ced8\" stroke-width=\"1\"/>\u003ctext x=\"4\" y=\"18\" text-anchor=\"start\" font-size=\"14\" font-weight=\"normal\" fill=\"#222222\" xml:space=\"preserve\">[ ] Keep me signed in\u003c/text>\u003c/svg>\n\u003csvg x=\"20\" y=\"320\" width=\"350\" height=\"48\">\u003crect x=\"0.5\" y=\"0.5\" width=\"349\" height=\"47\" rx=\"8\" fill=\"#2a6cf0\" stroke=\"#667788\" stroke-width=\"1\"/>\u003ctext x=\"175.0\" y=\"18\" text-anchor=\"middle\" font-size=\"14\" font-weight=\"bold\" fill=\"#ffffff\" xml:space=\"preserve\">Sign in\u003c/text>\u003c/svg>\n\u003c/svg>", "live": "\u003csvg xmlns=\"http://www.w3.org/2000/svg\" width=\"390\" height=\"844\" viewBox=\"0 0 390 844\" font-family=\"Arial, Helvetica, sans-serif\">\n\u003cdefs>\u003cfilter id=\"shadow\" x=\"-20%\" y=\"-20%\" width=\"140%\" height=\"150%\">\u003cfeDropShadow dx=\"0\" dy=\"3\" stdDeviation=\"4\" flood-opacity=\"0.3\"/>\u003c/filter>\u003c/defs>\n\u003crect width=\"390\" height=\"844\" fill=\"#ffffff\"/>\n\u003csvg x=\"20\" y=\"60\" width=\"350\" height=\"40\">\u003crect x=\"0.0\" y=\"0.0\" width=\"350\" height=\"40\" rx=\"0\" fill=\"#ffffff\" stroke=\"#667788\" stroke-width=\"0\"/>\u003ctext x=\"4\" y=\"32\" text-anchor=\"start\" font-size=\"28\" font-weight=\"bold\" fill=\"#1a2b4c\" xml:space=\"preserve\">Welcome\u003c/text>\u003c/svg>\n\u003csvg x=\"20\" y=\"140\" width=\"350\" height=\"44\">\u003crect x=\"0.5\" y=\"0.5\" width=\"349\" height=\"43\" rx=\"6\" fill=\"#ffffff\" stroke=\"#c9ced8\" stroke-width=\"1\"/>\u003ctext x=\"4\" y=\"18\" text-anchor=\"start\" font-size=\"14\" font-weight=\"normal\" fill=\"#222222\" xml:space=\"preserve\">Email\u003c/text>\u003ctext x=\"4\" y=\"34.8\" text-anchor=\"start\" font-size=\"14\" font-weight=\"normal\" fill=\"#222222\" xml:space=\"preserve\">you@example.com\u003c/text>\u003c/svg>\n\u003csvg x=\"20\" y=\"200\" width=\"350\" height=\"44\">\u003crect x=\"0.5\" y=\"0.5\" width=\"349\" height=\"43\" rx=\"6\" fill=\"#ffffff\" stroke=\"#c9ced8\" stroke-width=\"1\"/>\u003ctext x=\"4\" y=\"18\" text-anchor=\"start\" font-size=\"14\" font-weight=\"normal\" fill=\"#222222\" xml:space=\"preserve\">Password\u003c/text>\u003ctext x=\"4\" y=\"34.8\" text-anchor=\"start\" font-size=\"14\" font-weight=\"normal\" fill=\"#222222\" xml:space=\"preserve\">\u003c/text>\u003c/svg>\n\u003csvg x=\"20\" y=\"260\" width=\"350\" height=\"32\">\u003crect x=\"0.5\" y=\"0.5\" width=\"349\" height=\"31\" rx=\"6\" fill=\"#ffffff\" stroke=\"#c9ced8\" stroke-width=\"1\"/>\u003ctext x=\"4\" y=\"18\" text-anchor=\"start\" font-size=\"14\" font-weight=\"normal\" fill=\"#222222\" xml:space=\"preserve\">[ ] Keep me signed in\u003c/text>\u003c/svg>\n\u003csvg x=\"20\" y=\"320\" width=\"350\" height=\"48\">\u003crect x=\"0.5\" y=\"0.5\" width=\"349\" height=\"47\" rx=\"8\" fill=\"#2a6cf0\" stroke=\"#667788\" stroke-width=\"1\"/>\u003ctext x=\"175.0\" y=\"18\" text-anchor=\"middle\" font-size=\"14\" font-weight=\"bold\" fill=\"#ffffff\" xml:space=\"preserve\">Sign in\u003c/text>\u003c/svg>\n\u003c/svg>"}}, "failed": {"title": "Sign-in failed", "final": false, "events": ["retry"], "hotspots": [{"x": 20, "y": 200, "w": 350, "h": 48, "event": "retry"}], "steps": {"retry": {"status": "moved", "state": "login", "event": "retry", "transition": "t3"}}, "svg": {"debug": "\u003csvg xmlns=\"http://www.w3.org/2000/svg\" width=\"390\" height=\"844\" viewBox=\"0 0 390 844\" font-family=\"Arial, Helvetica, sans-serif\">\n\u003cdefs>\u003cfilter id=\"shadow\" x=\"-20%\" y=\"-20%\" width=\"140%\" height=\"150%\">\u003cfeDropShadow dx=\"0\" dy=\"3\" stdDeviation=\"4\" flood-opacity=\"0.3\"/>\u003c/filter>\u003c/defs>\n\u003crect width=\"390\" height=\"844\" fill=\"#ffffff\"/>\n\u003csvg x=\"20\" y=\"60\" width=\"350\" height=\"40\">\u003crect x=\"0.0\" y=\"0.0\" width=\"350\" height=\"40\" rx=\"0\" fill=\"#ffffff\" stroke=\"#667788\" stroke-width=\"0\"/>\u003ctext x=\"4\" y=\"32\" text-anchor=\"start\" font-size=\"28\" font-weight=\"bold\" fill=\"#1a2b4c\" xml:space=\"preserve\">Sign-in failed\u003c/text>\u003c/svg>\n\u003csvg x=\"20\" y=\"120\" width=\"350\" height=\"60\">\u003crect x=\"0.0\" y=\"0.0\" width=\"350\" height=\"60\" rx=\"0\" fill=\"#ffffff\" stroke=\"#667788\" stroke-width=\"0\"/>\u003ctext x=\"4\" y=\"18\" text-anchor=\"start\" font-size=\"14\" font-weight=\"normal\" fill=\"#333333\" xml:space=\"preserve\">We could not sign {{user.email}} in.\u003c/text>\u003c/svg>\n\u003csvg x=\"20\" y=\"200\" width=\"350\" height=\"48\">\u003crect x=\"0.5\" y=\"0.5\" width=\"349\" height=\"47\" rx=\"8\" fill=\"#2a6cf0\" stroke=\"#667788\" stroke-width=\"1\"/>\u003ctext x=\"175.0\" y=\"18\" text-anchor=\"middle\" font-size=\"14\" font-weight=\"bold\" fill=\"#ffffff\" xml:space=\"preserve\">Try again\u003c/text>\u003c/svg>\n\u003c/svg>", "live": "\u003csvg xmlns=\"http://www.w3.org/2000/svg\" width=\"390\" height=\"844\" viewBox=\"0 0 390 844\" font-family=\"Arial, Helvetica, sans-serif\">\n\u003cdefs>\u003cfilter id=\"shadow\" x=\"-20%\" y=\"-20%\" width=\"140%\" height=\"150%\">\u003cfeDropShadow dx=\"0\" dy=\"3\" stdDeviation=\"4\" flood-opacity=\"0.3\"/>\u003c/filter>\u003c/defs>\n\u003crect width=\"390\" height=\"844\" fill=\"#ffffff\"/>\n\u003csvg x=\"20\" y=\"60\" width=\"350\" height=\"40\">\u003crect x=\"0.0\" y=\"0.0\" width=\"350\" height=\"40\" rx=\"0\" fill=\"#ffffff\" stroke=\"#667788\" stroke-width=\"0\"/>\u003ctext x=\"4\" y=\"32\" text-anchor=\"start\" font-size=\"28\" font-weight=\"bold\" fill=\"#1a2b4c\" xml:space=\"preserve\">Sign-in failed\u003c/text>\u003c/svg>\n\u003csvg x=\"20\" y=\"120\" width=\"350\" height=\"60\">\u003crect x=\"0.0\" y=\"0.0\" width=\"350\" height=\"60\" rx=\"0\" fill=\"#ffffff\" stroke=\"#667788\" stroke-width=\"0\"/>\u003ctext x=\"4\" y=\"18\" text-anchor=\"start\" font-size=\"14\" font-weight=\"normal\" fill=\"#333333\" xml:space=\"preserve\">We could not sign sam@example.com in.\u003c/text>\u003c/svg>\n\u003csvg x=\"20\" y=\"200\" width=\"350\" height=\"48\">\u003crect x=\"0.5\" y=\"0.5\" width=\"349\" height=\"47\" rx=\"8\" fill=\"#2a6cf0\" stroke=\"#667788\" stroke-width=\"1\"/>\u003ctext x=\"175.0\" y=\"18\" text-anchor=\"middle\" font-size=\"14\" font-weight=\"bold\" fill=\"#ffffff\" xml:space=\"preserve\">Try again\u003c/text>\u003c/svg>\n\u003c/svg>"}}, "home": {"title": "Home", "final": true, "events": [], "hotspots": [], "steps": {}, "svg": {"debug": "\u003csvg xmlns=\"http://www.w3.org/2000/svg\" width=\"390\" height=\"844\" viewBox=\"0 0 390 844\" font-family=\"Arial, Helvetica, sans-serif\">\n\u003cdefs>\u003cfilter id=\"shadow\" x=\"-20%\" y=\"-20%\" width=\"140%\" height=\"150%\">\u003cfeDropShadow dx=\"0\" dy=\"3\" stdDeviation=\"4\" flood-opacity=\"0.3\"/>\u003c/filter>\u003c/defs>\n\u003crect width=\"390\" height=\"844\" fill=\"#ffffff\"/>\n\u003csvg x=\"20\" y=\"60\" width=\"350\" height=\"40\">\u003crect x=\"0.0\" y=\"0.0\" width=\"350\" height=\"40\" rx=\"0\" fill=\"#ffffff\" stroke=\"#667788\" stroke-width=\"0\"/>\u003ctext x=\"4\" y=\"32\" text-anchor=\"start\" font-size=\"28\" font-weight=\"bold\" fill=\"#1a2b4c\" xml:space=\"preserve\">Welcome back, {{user.name}}\u003c/text>\u003c/svg>\n\u003csvg x=\"20\" y=\"120\" width=\"350\" height=\"40\">\u003crect x=\"0.0\" y=\"0.0\" width=\"350\" height=\"40\" rx=\"0\" fill=\"#ffffff\" stroke=\"#667788\" stroke-width=\"0\"/>\u003ctext x=\"4\" y=\"18\" text-anchor=\"start\" font-size=\"14\" font-weight=\"normal\" fill=\"#333333\" xml:space=\"preserve\">Last visit: {{user.last_visit}}\u003c/text>\u003c/svg>\n\u003c/svg>", "live": "\u003csvg xmlns=\"http://www.w3.org/2000/svg\" width=\"390\" height=\"844\" viewBox=\"0 0 390 844\" font-family=\"Arial, Helvetica, sans-serif\">\n\u003cdefs>\u003cfilter id=\"shadow\" x=\"-20%\" y=\"-20%\" width=\"140%\" height=\"150%\">\u003cfeDropShadow dx=\"0\" dy=\"3\" stdDeviation=\"4\" flood-opacity=\"0.3\"/>\u003c/filter>\u003c/defs>\n\u003crect width=\"390\" height=\"844\" fill=\"#ffffff\"/>\n\u003csvg x=\"20\" y=\"60\" width=\"350\" height=\"40\">\u003crect x=\"0.0\" y=\"0.0\" width=\"350\" height=\"40\" rx=\"0\" fill=\"#ffffff\" stroke=\"#667788\" stroke-width=\"0\"/>\u003ctext x=\"4\" y=\"32\" text-anchor=\"start\" font-size=\"28\" font-weight=\"bold\" fill=\"#1a2b4c\" xml:space=\"preserve\">Welcome back, Sam Rivera\u003c/text>\u003c/svg>\n\u003csvg x=\"20\" y=\"120\" width=\"350\" height=\"40\">\u003crect x=\"0.0\" y=\"0.0\" width=\"350\" height=\"40\" rx=\"0\" fill=\"#ffffff\" stroke=\"#667788\" stroke-width=\"0\"/>\u003ctext x=\"4\" y=\"18\" text-anchor=\"start\" font-size=\"14\" font-weight=\"normal\" fill=\"#333333\" xml:space=\"preserve\">Last visit: Nov 20\u003c/text>\u003c/svg>\n\u003c/svg>"}}}}</script>
+<script>
+// This page only LOOKS THINGS UP in the data above, which Python computed when the
+// file was built. It does not decide where an event leads, how a block looks, or
+// what a block says. It cannot edit the wireframe or load another one.
+"use strict";
+const D = JSON.parse(document.getElementById("wireframe-data").textContent);
+const $ = (id) => document.getElementById(id);
+let current = D.initial;
+let trail = [];          // screens visited before this one, for Back
+let mode = "debug";
+
+function say(text) { $("message").textContent = text; $("choice-box").replaceChildren(); }
+
+function button(text, onclick) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.textContent = text;
+  b.onclick = onclick;
+  return b;
+}
+
+function go(id, remember) {
+  if (remember) trail.push(current);
+  current = id;
+  draw();
+}
+
+function raise(event) {
+  const result = D.states[current].steps[event];
+  if (!result) { say(`Nothing here raises "${event}".`); return; }
+  if (result.status === "moved") {
+    const from = current;
+    go(result.state, true);
+    say(`${event}: ${from} -> ${result.state}`);
+  } else if (result.status === "stuck") {
+    say(`Stuck: no transition handles "${event}" on this screen.`);
+  } else {
+    say(`"${event}" could go several ways. Pick one:`);
+    for (const o of result.options) {
+      $("choice-box").append(button(`if ${o.guard || "(no guard)"} -> ${o.target}`, () => {
+        const from = current;
+        go(o.target, true);
+        say(`${event} (${o.transition}): ${from} -> ${o.target}`);
+      }));
+    }
+  }
+}
+
+function draw() {
+  const s = D.states[current];
+  $("doc-name").textContent = D.name;
+  $("screen-title").textContent = s.title + (s.final ? " (final screen)" : "");
+  const url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(s.svg[mode]);
+  const img = document.createElement("img");
+  img.src = url;
+  img.alt = s.title;
+  img.width = D.canvas.width;
+  img.height = D.canvas.height;
+  const box = $("picture");
+  box.style.width = D.canvas.width + "px";
+  box.style.height = D.canvas.height + "px";
+  box.replaceChildren(img);
+  for (const h of s.hotspots) {
+    const spot = document.createElement("button");
+    spot.type = "button";
+    spot.className = "hotspot";
+    spot.title = h.event;
+    spot.style.left = h.x + "px";
+    spot.style.top = h.y + "px";
+    spot.style.width = h.w + "px";
+    spot.style.height = h.h + "px";
+    spot.onclick = () => raise(h.event);
+    box.append(spot);
+  }
+  $("event-list").replaceChildren(...s.events.map((e) => button(e, () => raise(e))));
+  $("screen-list").replaceChildren(...D.order.map((id) => {
+    const b = button(D.states[id].title, () => { say(""); go(id, true); });
+    b.setAttribute("aria-current", String(id === current));
+    return b;
+  }));
+  $("btn-back").disabled = trail.length === 0;
+  const link = $("save-svg");
+  link.href = url;
+  link.download = (D.name + "-" + current).replace(/[^A-Za-z0-9_-]+/g, "-") + ".svg";
+}
+
+$("data-mode").onchange = (e) => { mode = e.target.value; draw(); };
+$("btn-back").onclick = () => { if (trail.length) { current = trail.pop(); say(""); draw(); } };
+$("btn-restart").onclick = () => { trail = []; current = D.initial; say(""); draw(); };
+document.title = D.name + " (viewer)";
+draw();
+</script>
+</body>
+</html>
