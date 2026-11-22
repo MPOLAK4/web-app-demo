@@ -35,8 +35,23 @@ panel (a key with no sample gets an automatic one, `cart.total` -> "Cart total")
 "Save HTML" and "Save SVG" download a picture of the screen you are on, in the
 chosen mode. Your stored text is never changed by the switch.
 
+Round 4 adds: `python -m wireframe start` / `status` / `stop` run the editor server in
+the background and it stops itself after 300 seconds without a request (change with
+`--idle-timeout`); and a clickable `viewer.html` (`python -m wireframe viewer my.json
+--out viewer.html`, or "Save viewer" in the editor) that needs no server.
+
+Round 5 adds: **example layouts** (`login`, `dashboard`, `settings`, `checkout`, and
+`flawed`, which is broken on purpose) each with the expected output, in `examples/`
+and through the commands below; and **iteration guidance**: the AI guide and both spec
+sheets tell an AI to settle (or ask for) how many passes to make on one UI piece and to
+change something each pass. The tool does not store or enforce that count.
+
 ## Headless use (no browser)
 
+    python -m wireframe examples                  # list the example layouts
+    python -m wireframe examples login            # the example's wireframe (the input)
+    python -m wireframe examples login --part coder   # or image, check, svg, viewer
+    python -m wireframe new my.json --example login   # start a file from one
     python -m wireframe new my.json --example     # a 3-screen checkout example
     python -m wireframe validate my.json          # is the file well formed?
     python -m wireframe check my.json             # flow and duplicate-info problems
@@ -74,6 +89,7 @@ the browser cannot be unit-tested this way; try them by hand.
 | `.gitattributes` | Keeps `tests/` out of release archives (`git archive`). |
 | `server.py` | The small local Python server (standard library only): JSON API plus the static files. |
 | `static/` | The browser editor: `index.html`, `style.css`, `app.js`. |
-| `wireframe/` | The Python package: `model.py` (data and validation), `ops.py` (edits), `checks.py` (R4/R5 checks), `spec.py` (exports and AI guide), `data.py` (standins), `render.py` (SVG/HTML files), `play.py` (Play logic), `cli.py` (command line), `example.py`. |
+| `wireframe/` | The Python package: `model.py` (data and validation), `ops.py` (edits), `checks.py` (R4/R5 checks), `spec.py` (exports and AI guide), `data.py` (standins), `render.py` (SVG/HTML files), `play.py` (Play logic), `cli.py` (command line), `example.py` (the checkout example), `examples.py` (the example library, R14). |
+| `examples/` | Built files: each example's wireframe-derived coder spec, image brief, check result, SVGs and viewer. Rebuild with `python -m wireframe examples --build examples`. |
 | `docs/decisions/` | Decision records, one per choice that had real alternatives. |
 | `tests/` | Unit tests; they name the requirement IDs they check. Not part of a release. |
