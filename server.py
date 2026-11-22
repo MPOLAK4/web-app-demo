@@ -63,6 +63,30 @@ CONTENT_TYPES = {
 LOCAL_HOSTS = {"127.0.0.1", "localhost"}
 
 
+# Every route, once: (method, path) -> name of the Handler method that answers it.
+# A path here used with another method is answered 405; any other /api/ path is 404.
+# To add a route, add one line here and one Handler method (and document it above).
+ROUTES = {
+    ("GET", "/api/wireframe"): "get_wireframe",
+    ("PUT", "/api/wireframe"): "put_wireframe",
+    ("POST", "/api/op"): "post_op",
+    ("GET", "/api/check"): "get_check",
+    ("GET", "/api/spec"): "get_spec",
+    ("GET", "/api/play"): "get_play",
+    ("POST", "/api/play"): "post_play",
+    ("GET", "/api/lines"): "get_lines",
+    ("GET", "/api/render"): "get_render",
+    ("GET", "/api/resolved"): "get_resolved",
+    ("GET", "/api/ping"): "get_ping",
+    ("POST", "/api/shutdown"): "post_shutdown",
+    ("GET", "/api/viewer"): "get_viewer",
+    ("GET", "/api/examples"): "get_examples",
+    ("GET", "/api/example"): "get_example",
+    ("GET", "/api/guide"): "get_guide",
+}
+KNOWN_PATHS = {path for _, path in ROUTES}
+
+
 def download_name(wireframe_name, part, extension):
     """The file name offered for a download: letters, digits, '-' and '_' only."""
     stem = "".join(c if c.isalnum() or c in "-_" else "-" for c in f"{wireframe_name}-{part}")
@@ -146,6 +170,15 @@ def make_server(path, host="127.0.0.1", port=8000, static_dir=None, quiet=False,
                 self.send_errors(400, [f"the body is not valid JSON ({exc})"])
                 return None
 
+        def load_doc(self):
+            with lock:
+                return model.load_or_create(path)
+
+        def data_mode(self, query):
+            mode = query.get("data", ["debug"])[0]
+            data.check_mode(mode)
+            return mode
+
         # ---- routing ----
         def dispatch(self, method):
             httpd.last_request = time.monotonic()   # any request, even a refused one, is a ping
@@ -153,147 +186,146 @@ def make_server(path, host="127.0.0.1", port=8000, static_dir=None, quiet=False,
                 self.drain_body()
                 return self.send_errors(403, ["requests must use a local Host name"])
             url = urlsplit(self.path)
-            route = (method, url.path)
-            try:
-                if route == ("GET", "/api/wireframe"):
-                    with lock:
-                        return self.send_json(200, model.load_or_create(path))
-                if route == ("PUT", "/api/wireframe"):
-                    body = self.read_json_body()
-                    if body is None:
-                        return
-                    with lock:
-                        model.save(body, path)
-                    return self.send_json(200, body)
-                if route == ("POST", "/api/op"):
-                    body = self.read_json_body()
-                    if body is None:
-                        return
-                    with lock:
-                        new = ops.apply_op(model.load_or_create(path), body)
-                        model.save(new, path)
-                    return self.send_json(200, new)
-                if route == ("GET", "/api/check"):
-                    with lock:
-                        findings = checks.check(model.load_or_create(path))
-                    return self.send_json(200, {"findings": findings,
-                                                "has_errors": checks.has_errors(findings)})
-                if route == ("GET", "/api/spec"):
-                    query = parse_qs(url.query)
-                    mode = query.get("mode", ["coder"])[0]
-                    with lock:
-                        text = spec.export_spec(model.load_or_create(path), mode,
-                                                query.get("data", ["debug"])[0])
-                    return self.send_bytes(200, text.encode("utf-8"), "text/markdown; charset=utf-8")
-                if route == ("GET", "/api/play"):
-                    with lock:
-                        doc = model.load_or_create(path)
-                    query = parse_qs(url.query)
-                    mode = query.get("data", ["debug"])[0]
-                    data.check_mode(mode)
-                    scr = play.screen(doc, query.get("state", [doc["initial"]])[0])
-                    for b in scr["blocks"]:
-                        b["lines"] = render.content_lines(doc, b, mode)
-                    return self.send_json(200, scr)
-                if route == ("GET", "/api/lines"):
-                    with lock:
-                        doc = model.load_or_create(path)
-                    query = parse_qs(url.query)
-                    mode = query.get("data", ["debug"])[0]
-                    data.check_mode(mode)
-                    wanted = query.get("state", [doc["initial"]])[0]
-                    for st in doc["states"]:
-                        if st["id"] == wanted:
-                            return self.send_json(200, {b["id"]: render.content_lines(doc, b, mode)
-                                                        for b in st["blocks"]})
-                    raise model.WireframeError(f"no state with id '{wanted}'")
-                if route == ("GET", "/api/render"):
-                    with lock:
-                        doc = model.load_or_create(path)
-                    query = parse_qs(url.query)
-                    if "state" in query and "after" in query:
-                        raise model.WireframeError("use state or after, not both")
-                    state_id = query["state"][0] if "state" in query else play.follow(doc, query.get("after", []))
-                    fmt = query.get("format", ["svg"])[0]
-                    text = render.render_screen(doc, state_id, fmt, query.get("data", ["debug"])[0])
-                    # No script, no network: if a label ever held markup, the browser still would not run it.
-                    headers = [("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; "
-                                                           "img-src data:"),
-                               ("X-Content-Type-Options", "nosniff")]
-                    if query.get("download", [""])[0] == "1":
-                        headers.append(("Content-Disposition", "attachment; filename=\"" + download_name(
-                            doc["name"], state_id, fmt) + "\""))
-                    ctype = "image/svg+xml" if fmt == "svg" else "text/html; charset=utf-8"
-                    return self.send_bytes(200, text.encode("utf-8"), ctype, headers)
-                if route == ("POST", "/api/play"):
-                    body = self.read_json_body()
-                    if body is None:
-                        return
-                    if not isinstance(body, dict) or not isinstance(body.get("state"), str) \
-                            or not isinstance(body.get("event"), str) \
-                            or not isinstance(body.get("choice", ""), str):
-                        return self.send_errors(400, ["send {\"state\": text, \"event\": text, "
-                                                      "\"choice\": text (optional)}"])
-                    with lock:
-                        doc = model.load_or_create(path)
-                    return self.send_json(200, play.step(doc, body["state"], body["event"],
-                                                         body.get("choice") or None))
-                if route == ("GET", "/api/resolved"):
-                    with lock:
-                        doc = model.load_or_create(path)
-                    return self.send_json(200, {f"{st['id']}/{b['id']}": styles.resolve_style(doc, b)
-                                                for st in doc["states"] for b in st["blocks"]})
-                if route == ("GET", "/api/ping"):
-                    return self.send_json(200, {"ok": True, "idle_timeout": httpd.idle_timeout})
-                if route == ("POST", "/api/shutdown"):
-                    body = self.read_json_body()
-                    if body is None:
-                        return
-                    self.send_json(200, {"ok": True})
-                    # shutdown() waits for serve_forever() to return, so it must not run on
-                    # the thread that is answering this request.
-                    threading.Thread(target=httpd.shutdown, daemon=True).start()
-                    return
-                if route == ("GET", "/api/viewer"):
-                    with lock:
-                        doc = model.load_or_create(path)
-                    headers = [("X-Content-Type-Options", "nosniff")]
-                    if parse_qs(url.query).get("download", [""])[0] == "1":
-                        headers.append(("Content-Disposition", "attachment; filename=\"" + download_name(
-                            doc["name"], "viewer", "html") + "\""))
-                    return self.send_bytes(200, viewer.build_viewer(doc).encode("utf-8"),
-                                           "text/html; charset=utf-8", headers)
-                if route == ("GET", "/api/examples"):
-                    return self.send_json(200, examples.list_examples())
-                if route == ("GET", "/api/example"):
-                    # Read-only: never touches the lock or the server's wireframe file.
-                    name = parse_qs(url.query).get("name", [""])[0]
-                    doc = examples.get_example(name)       # unknown or empty: WireframeError -> 400
-                    io = examples.example_io(name)
-                    meta = [e for e in examples.list_examples() if e["name"] == name][0]
-                    findings = checks.check(doc)
-                    return self.send_json(200, {**meta, "wireframe": doc, "coder": io["coder"],
-                                                "image": io["image"], "svg": io["svg"],
-                                                "check": {"findings": findings,
-                                                          "has_errors": checks.has_errors(findings)}})
-                if route == ("GET", "/api/guide"):
-                    return self.send_bytes(200, spec.authoring_guide().encode("utf-8"),
-                                           "text/markdown; charset=utf-8")
-            except model.WireframeError as exc:
-                return self.send_errors(400, exc.errors)
-
+            handler = ROUTES.get((method, url.path))
+            if handler:
+                try:
+                    return getattr(self, handler)(url)
+                except model.WireframeError as exc:
+                    return self.send_errors(400, exc.errors)
             if url.path.startswith("/api/"):
                 self.drain_body()      # we are about to refuse; do not leave a body unread
-                known = {"/api/wireframe", "/api/op", "/api/check", "/api/spec", "/api/guide",
-                         "/api/play", "/api/resolved", "/api/lines", "/api/render", "/api/ping",
-                         "/api/shutdown", "/api/viewer", "/api/examples", "/api/example"}
-                if url.path in known:
+                if url.path in KNOWN_PATHS:
                     return self.send_errors(405, [f"{method} is not allowed on {url.path}"])
                 return self.send_errors(404, [f"no such endpoint {url.path}"])
             if method == "GET":
                 return self.send_static(url.path)
             self.drain_body()
             return self.send_errors(405, [f"{method} is not allowed here"])
+
+        # ---- route handlers: ROUTES (top of this file) says which one answers what ----
+        def get_wireframe(self, url):
+            self.send_json(200, self.load_doc())
+
+        def put_wireframe(self, url):
+            body = self.read_json_body()
+            if body is None:
+                return
+            with lock:
+                model.save(body, path)
+            self.send_json(200, body)
+
+        def post_op(self, url):
+            body = self.read_json_body()
+            if body is None:
+                return
+            with lock:
+                new = ops.apply_op(model.load_or_create(path), body)
+                model.save(new, path)
+            self.send_json(200, new)
+
+        def get_check(self, url):
+            findings = checks.check(self.load_doc())
+            self.send_json(200, {"findings": findings, "has_errors": checks.has_errors(findings)})
+
+        def get_spec(self, url):
+            query = parse_qs(url.query)
+            text = spec.export_spec(self.load_doc(), query.get("mode", ["coder"])[0],
+                                    query.get("data", ["debug"])[0])
+            self.send_bytes(200, text.encode("utf-8"), "text/markdown; charset=utf-8")
+
+        def get_play(self, url):
+            doc = self.load_doc()
+            query = parse_qs(url.query)
+            mode = self.data_mode(query)
+            scr = play.screen(doc, query.get("state", [doc["initial"]])[0])
+            for b in scr["blocks"]:
+                b["lines"] = render.content_lines(doc, b, mode)
+            self.send_json(200, scr)
+
+        def get_lines(self, url):
+            doc = self.load_doc()
+            query = parse_qs(url.query)
+            mode = self.data_mode(query)
+            wanted = query.get("state", [doc["initial"]])[0]
+            for st in doc["states"]:
+                if st["id"] == wanted:
+                    return self.send_json(200, {b["id"]: render.content_lines(doc, b, mode)
+                                                for b in st["blocks"]})
+            raise model.WireframeError(f"no state with id '{wanted}'")
+
+        def get_render(self, url):
+            doc = self.load_doc()
+            query = parse_qs(url.query)
+            if "state" in query and "after" in query:
+                raise model.WireframeError("use state or after, not both")
+            state_id = query["state"][0] if "state" in query else play.follow(doc, query.get("after", []))
+            fmt = query.get("format", ["svg"])[0]
+            text = render.render_screen(doc, state_id, fmt, query.get("data", ["debug"])[0])
+            # No script, no network: if a label ever held markup, the browser still would not run it.
+            headers = [("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; "
+                                                   "img-src data:"),
+                       ("X-Content-Type-Options", "nosniff")]
+            if query.get("download", [""])[0] == "1":
+                headers.append(("Content-Disposition", "attachment; filename=\"" + download_name(
+                    doc["name"], state_id, fmt) + "\""))
+            ctype = "image/svg+xml" if fmt == "svg" else "text/html; charset=utf-8"
+            self.send_bytes(200, text.encode("utf-8"), ctype, headers)
+
+        def post_play(self, url):
+            body = self.read_json_body()
+            if body is None:
+                return
+            if not isinstance(body, dict) or not isinstance(body.get("state"), str) \
+                    or not isinstance(body.get("event"), str) \
+                    or not isinstance(body.get("choice", ""), str):
+                return self.send_errors(400, ['send {"state": text, "event": text, '
+                                              '"choice": text (optional)}'])
+            self.send_json(200, play.step(self.load_doc(), body["state"], body["event"],
+                                          body.get("choice") or None))
+
+        def get_resolved(self, url):
+            doc = self.load_doc()
+            self.send_json(200, {f"{st['id']}/{b['id']}": styles.resolve_style(doc, b)
+                                 for st in doc["states"] for b in st["blocks"]})
+
+        def get_ping(self, url):
+            self.send_json(200, {"ok": True, "idle_timeout": httpd.idle_timeout})
+
+        def post_shutdown(self, url):
+            body = self.read_json_body()
+            if body is None:
+                return
+            self.send_json(200, {"ok": True})
+            # shutdown() waits for serve_forever() to return, so it must not run on
+            # the thread that is answering this request.
+            threading.Thread(target=httpd.shutdown, daemon=True).start()
+
+        def get_viewer(self, url):
+            doc = self.load_doc()
+            headers = [("X-Content-Type-Options", "nosniff")]
+            if parse_qs(url.query).get("download", [""])[0] == "1":
+                headers.append(("Content-Disposition", "attachment; filename=\"" + download_name(
+                    doc["name"], "viewer", "html") + "\""))
+            self.send_bytes(200, viewer.build_viewer(doc).encode("utf-8"),
+                            "text/html; charset=utf-8", headers)
+
+        def get_examples(self, url):
+            self.send_json(200, examples.list_examples())
+
+        def get_example(self, url):
+            # Read-only: never touches the lock or the server's wireframe file.
+            name = parse_qs(url.query).get("name", [""])[0]
+            doc = examples.get_example(name)       # unknown or empty: WireframeError -> 400
+            io = examples.example_io(name)
+            meta = [e for e in examples.list_examples() if e["name"] == name][0]
+            findings = checks.check(doc)
+            self.send_json(200, {**meta, "wireframe": doc, "coder": io["coder"],
+                                 "image": io["image"], "svg": io["svg"],
+                                 "check": {"findings": findings,
+                                           "has_errors": checks.has_errors(findings)}})
+
+        def get_guide(self, url):
+            self.send_bytes(200, spec.authoring_guide().encode("utf-8"), "text/markdown; charset=utf-8")
 
         def send_static(self, url_path):
             if url_path == "/":
