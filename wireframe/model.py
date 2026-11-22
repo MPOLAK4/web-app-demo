@@ -11,6 +11,7 @@ problem, reported by checks.check() (R4), so it must still be saveable here.
 
 import json
 import os
+import re
 import tempfile
 
 from . import styles as _styles
@@ -28,12 +29,22 @@ DEVICE_PRESETS = {"phone": (390, 844), "tablet": (820, 1180), "desktop": (1280, 
 # Required fields, then the optional ones added in Round 2. Optional means a
 # Round 1 file (without them) is still valid.
 _DOC_FIELDS = {"name", "canvas", "initial", "states", "transitions"}
-_DOC_OPTIONAL = {"styles"}
+_DOC_OPTIONAL = {"styles", "data"}
 _STATE_FIELDS = {"id", "title", "final", "blocks"}
 _STATE_OPTIONAL = {"background"}
 _BLOCK_FIELDS = {"id", "type", "x", "y", "w", "h", "label", "info", "note", "event"}
 _BLOCK_OPTIONAL = {"style", "look", "placeholder", "options", "value", "disabled", "hidden", "required"}
 _TRANSITION_FIELDS = {"id", "source", "target", "event", "guard"}
+
+
+# A data key (R11) starts with a letter or underscore, then letters, digits, _ . or -
+# (for example file.value). data.py builds its {{key}} token pattern from this.
+KEY_PATTERN = r"[A-Za-z_][A-Za-z0-9_.\-]*"
+_DATA_KEY = re.compile(rf"^{KEY_PATTERN}$")
+
+
+def is_data_key(text):
+    return isinstance(text, str) and bool(_DATA_KEY.match(text))
 
 
 class WireframeError(Exception):
@@ -148,6 +159,18 @@ def validate(doc):
                     errors.append("styles: every style name must be a non-empty string")
                 else:
                     _styles.validate_style(style, f"styles.{name}", errors)
+
+    if "data" in doc:
+        table = doc["data"]
+        if not isinstance(table, dict):
+            errors.append("data: must be an object of key -> sample text")
+        else:
+            for key, text in table.items():
+                if not is_data_key(key):
+                    errors.append(f"data.{key}: a key must start with a letter or _ and use only "
+                                  "letters, digits, _, . or - (for example cart.total)")
+                elif not isinstance(text, str):
+                    errors.append(f"data.{key}: sample must be text")
 
     states = doc.get("states")
     if "states" in doc:

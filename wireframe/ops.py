@@ -14,7 +14,7 @@ apply_op(), so they cannot disagree about what an edit means.
 import copy
 import inspect
 
-from .model import DEVICE_PRESETS, WireframeError, require_valid
+from .model import DEVICE_PRESETS, WireframeError, is_data_key, require_valid
 
 _BLOCK_EDITABLE = {"type", "x", "y", "w", "h", "label", "info", "note", "event",
                    "style", "look", "placeholder", "options", "value", "disabled", "hidden", "required"}
@@ -219,6 +219,29 @@ def set_style(doc, state, ids, style):
     return _finish(new)
 
 
+# ---- sample data for {{key}} standins (R11) ------------------------------
+
+def set_data(doc, key, value):
+    """Add or replace the sample text for one data key."""
+    if not is_data_key(key):
+        raise WireframeError(f"'{key}' is not a data key; start with a letter or _ and use "
+                             "letters, digits, _, . or - (for example cart.total)")
+    new = copy.deepcopy(doc)
+    new.setdefault("data", {})[key] = value
+    return _finish(new)
+
+
+def delete_data(doc, key):
+    """Remove one key; the `data` field itself goes when it is empty (old files keep their shape)."""
+    new = copy.deepcopy(doc)
+    if key not in new.get("data", {}):
+        raise WireframeError(f"no data key '{key}'")
+    del new["data"][key]
+    if not new["data"]:
+        del new["data"]
+    return _finish(new)
+
+
 # ---- transitions -------------------------------------------------------
 
 def add_transition(doc, source, target, event, guard="", id=None):
@@ -248,7 +271,7 @@ def delete_transition(doc, id):
 OPS = {fn.__name__: fn for fn in (
     update_wireframe, add_state, update_state, delete_state,
     add_block, update_block, delete_block, duplicate_block, reorder_block, move_blocks,
-    add_style, update_style, delete_style, set_style,
+    add_style, update_style, delete_style, set_style, set_data, delete_data,
     add_transition, update_transition, delete_transition,
 )}
 
