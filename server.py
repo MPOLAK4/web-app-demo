@@ -63,6 +63,12 @@ CONTENT_TYPES = {
 LOCAL_HOSTS = {"127.0.0.1", "localhost"}
 
 
+def download_name(wireframe_name, part, extension):
+    """The file name offered for a download: letters, digits, '-' and '_' only."""
+    stem = "".join(c if c.isalnum() or c in "-_" else "-" for c in f"{wireframe_name}-{part}")
+    return f"{stem}.{extension}"
+
+
 def make_server(path, host="127.0.0.1", port=8000, static_dir=None, quiet=False,
                 idle_timeout=DEFAULT_IDLE_TIMEOUT):
     """Build (but do not start) a server for the wireframe file at `path`.
@@ -215,8 +221,8 @@ def make_server(path, host="127.0.0.1", port=8000, static_dir=None, quiet=False,
                                                            "img-src data:"),
                                ("X-Content-Type-Options", "nosniff")]
                     if query.get("download", [""])[0] == "1":
-                        stem = "".join(c if c.isalnum() or c in "-_" else "-" for c in f"{doc['name']}-{state_id}")
-                        headers.append(("Content-Disposition", f'attachment; filename="{stem}.{fmt}"'))
+                        headers.append(("Content-Disposition", "attachment; filename=\"" + download_name(
+                            doc["name"], state_id, fmt) + "\""))
                     ctype = "image/svg+xml" if fmt == "svg" else "text/html; charset=utf-8"
                     return self.send_bytes(200, text.encode("utf-8"), ctype, headers)
                 if route == ("POST", "/api/play"):
@@ -253,8 +259,8 @@ def make_server(path, host="127.0.0.1", port=8000, static_dir=None, quiet=False,
                         doc = model.load_or_create(path)
                     headers = [("X-Content-Type-Options", "nosniff")]
                     if parse_qs(url.query).get("download", [""])[0] == "1":
-                        stem = "".join(c if c.isalnum() or c in "-_" else "-" for c in f"{doc['name']}-viewer")
-                        headers.append(("Content-Disposition", f'attachment; filename="{stem}.html"'))
+                        headers.append(("Content-Disposition", "attachment; filename=\"" + download_name(
+                            doc["name"], "viewer", "html") + "\""))
                     return self.send_bytes(200, viewer.build_viewer(doc).encode("utf-8"),
                                            "text/html; charset=utf-8", headers)
                 if route == ("GET", "/api/examples"):
