@@ -30,3 +30,11 @@ R11. Data standins; when reading something like "file.value", have the ability t
 
 R12. Try to not have the application open up a server, AI should be able to handle closing the server down when it's done using it. Server should have a 5 minute timeout where it shuts itself down if nothing pinged it
 R13. Create a html file you can click to open within a browser, application will be able to work.
+
+
+## Round 5
+
+R14. Implement some example UI layouts for the user/AI to see an example of the expected I/O.
+R15. Review the spec sheet for UI creation; AI should consider or ask for how many iterations should be done on the same UI piece, changing it every time if needed. 
+
+

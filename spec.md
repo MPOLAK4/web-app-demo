@@ -1,6 +1,6 @@
 # Spec: wireframe tool
 
-Status: **Round 4** (R1-R5 built in Round 1; R6-R9 in Round 2; R10-R11 in Round 3; R12-R13 specified below).
+Status: **Round 5** (R1-R5 built in Round 1; R6-R9 in Round 2; R10-R11 in Round 3; R12-R13 in Round 4; R14-R15 specified below).
 
 The requirement IDs below are the ones in `problem.md`. Each one is followed by
 acceptance criteria, lettered (a), (b), ... Tests cite the ID and, in their
@@ -430,6 +430,81 @@ How I read the unclear parts (agreed with the author before writing code):
   "Save viewer" link.
 - (h) `viewer.html` in the repository root is a built example anyone can double-click.
 
+## Round 5: example layouts, iteration guidance (R14, R15)
+
+How I read the unclear parts (agreed with the author before writing code):
+
+- **R14 "example UI layouts ... expected I/O"** means a small *library of complete
+  wireframes*, each shipped with the output the tool gives for it (the *expected
+  I/O*: the wireframe is the input; the coder spec, image brief, check report, SVG
+  pictures and a clickable viewer are the outputs). One example is deliberately
+  flawed so the checker's findings can be seen.
+- **R15 "review the spec sheet ... how many iterations"** means *guidance only*: the
+  authoring guide and both spec sheets tell an AI to settle how many passes to make
+  on one UI piece (ask the user; if it cannot ask, 2), to change something named in
+  every pass, and to log each pass. The app does not store, count or judge passes:
+  there is no new field in the wireframe and no new check.
+
+### R14. Example UI layouts with their expected I/O
+
+- (a) `examples.list_examples()` returns, in this fixed order, one entry
+  (`name`, `title`, `summary`) for each of: `checkout`, `login`, `dashboard`,
+  `settings`, `flawed`.
+- (b) `examples.get_example(name)` returns a fresh copy of that wireframe (changing it
+  never changes the library). An unknown name is an error that lists the valid names.
+  Every example passes `validate`.
+- (c) `checkout` is the Round 1 worked example. `checkout`, `login`, `dashboard` and
+  `settings` produce **no findings at all** from `check`. `login` shows text inputs, a
+  checkbox, and one event that can go two ways (guarded); `dashboard` shows `nav`,
+  `card` and `table` blocks; `settings` shows `toggle`, `select` and `slider`.
+- (d) `flawed` passes `validate` but `check` reports at least `duplicate-info`,
+  `duplicate-label`, `dead-control`, `button-without-event`, `overlap`,
+  `unreachable-state` and `dead-end`. The `note` of each flawed block starts with
+  `FLAW:` and says what is wrong, so a reader can match notes to findings.
+- (e) `examples.example_io(name)` returns the expected output for an example, each
+  part exactly what the matching command gives for that wireframe: `wireframe` (the
+  JSON text, as saved), `coder` (coder spec), `image` (image brief in `live` data
+  mode, because an image generator needs real text), `check` (the text
+  `check` prints), `svg` (screen id -> SVG in `live` mode) and `viewer` (R13 file).
+- (f) The repository folder `examples/` holds those parts as files: `examples/README.md`
+  (what each example is and what each file means) and, per example,
+  `wireframe.json`, `coder.md`, `image-live.md`, `check.txt`, `screens/<screen>.svg`
+  and `viewer.html`. `python -m wireframe examples --build DIR` writes the whole
+  folder (replacing files it owns, with LF line endings). A test fails if the
+  checked-in `examples/` is stale, like `viewer.html` (R13(h)).
+- (g) Command line: `python -m wireframe examples` lists the examples;
+  `examples NAME [--part wireframe|coder|image|check|svg|viewer] [--state ID]` prints
+  one part (default `wireframe`; `svg` defaults to the first screen). An unknown name,
+  part or screen is exit code 1 and prints nothing to stdout. `new FILE --example
+  [NAME]` starts a file from that example; a bare `--example` still means `checkout`.
+- (h) `GET /api/examples` returns the list as JSON. `GET /api/example?name=NAME`
+  returns `{name, title, summary, wireframe (object), coder, image, check (findings,
+  has_errors), svg (screen -> text)}`. A missing or unknown name is HTTP 400. Both are
+  read-only and never touch the server's wireframe file.
+- (i) The authoring guide has an `Examples` section that names the command and every
+  example. The guide's embedded example stays the `checkout` one.
+
+### R15. How many iterations on the same UI piece
+
+A *piece* is one screen, or one group of blocks on a screen.
+
+- (a) The authoring guide has a section `Iterating on one UI piece` that says: settle
+  the number of passes N before the first draft; use the number the user gave; if the
+  user gave none, ask; if you cannot ask, use 2 and say so; every pass after the first
+  must change something you can name (position, size, type, label, style, or removing
+  duplicated information), and if nothing is left to change, stop early and say so;
+  run `validate` and `check` after each pass; keep ids stable and make small edits
+  with `op`; write one line per pass: `Pass k of N: <what changed>, because <why>;
+  check: <E> errors, <W> warnings`; the app does not store or enforce the count.
+- (b) The coder spec and the image brief each end with a short `## Iterations` section
+  with the same rules in their own terms. The image brief's section talks only about
+  visible changes (layout, spacing, emphasis, wording) and still contains no event
+  names, guards or info keys (R2(b)).
+- (c) The default number (2) is one constant in `wireframe/spec.py`; the guide and
+  both exports read it, so they cannot disagree.
+- (d) Nothing else changes: no new wireframe field, no new check code, older files
+  stay valid, and exports stay deterministic (R2(c)).
+
 ## Out of scope for this round
 
 - Evaluating guards, simulating user sessions, or checking data values.
@@ -440,6 +515,9 @@ How I read the unclear parts (agreed with the author before writing code):
 - Renaming a state's `id` after creation (change its `title` instead).
 - Editing in the viewer file, or loading another wireframe into it; a JavaScript port of the Python rules; running Python in the browser.
 - Stopping a server by killing its process; authentication for `shutdown` (it is local-only and JSON-only like every write).
+- Round 5: storing an iteration count or log in the wireframe, judging whether a pass changed
+  anything, a command that saves numbered copies; an example picker in the browser editor
+  (an example is opened with `new --example NAME` or `GET /api/example`, or its `viewer.html`).
 
 ## Files
 
@@ -455,7 +533,9 @@ How I read the unclear parts (agreed with the author before writing code):
 | `wireframe/serverctl.py` | `start`, `stop`, `status` for a background server (R12) |
 | `wireframe/viewer.py`, `wireframe/viewer_template.html` | `build_viewer`: the clickable file (R13) |
 | `wireframe/spec.py` | `export_spec`, `authoring_guide` (R2, R3) |
-| `wireframe/example.py` | a valid example wireframe |
+| `wireframe/example.py` | the Round 1 worked example (`checkout`) |
+| `wireframe/examples.py` | the example library and its expected I/O (R14) |
+| `examples/` | built files for each example; generated, do not edit by hand (R14(f)) |
 | `wireframe/cli.py`, `wireframe/__main__.py` | command line |
 | `server.py` | local HTTP server and API |
 | `static/` | browser editor (HTML, CSS, JS) |
