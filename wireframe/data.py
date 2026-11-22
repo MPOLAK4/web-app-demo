@@ -16,7 +16,7 @@ Everything here only reads; nothing writes a standin back into the document.
 
 import re
 
-from .model import KEY_PATTERN, WireframeError, is_data_key  # noqa: F401  (is_data_key re-exported)
+from .model import KEY_PATTERN, WireframeError
 
 MODES = ("debug", "live")
 
