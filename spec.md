@@ -1,6 +1,6 @@
 # Spec: wireframe tool
 
-Status: **Round 1** (all of R1-R5 from `problem.md`).
+Status: **Round 2** (R1-R5 built in Round 1; R6-R9 specified below).
 
 The requirement IDs below are the ones in `problem.md`. Each one is followed by
 acceptance criteria, lettered (a), (b), ... Tests cite the ID and, in their
@@ -155,6 +155,119 @@ message. Flow findings:
   because those screens are not visible together.
 - (f) Info-key comparison ignores case and surrounding whitespace.
 
+## Round 2: styles, more UI options, play mode (R6-R9)
+
+How I read the unclear parts (agreed with the author before writing code):
+
+- **R6** means fixed, validated style fields on every block (not free text).
+- **R7** means *named styles*: the wireframe holds a table of named styles, a
+  block points at one by name and may override single fields.
+- **R8** means all four: more block types, more block properties, screen/canvas
+  options, and more editor features.
+- **R9** means a Play mode in the browser plus a headless `walk` command.
+
+**Compatibility rule.** Every field added in Round 2 is *optional*. A Round 1
+file (no `styles`, no `style`, ...) is still valid and still means what it did.
+Missing values fall back to defaults (see R6(b)).
+
+### Data model additions
+
+```
+document:  "styles": {"primary": {"fill": "#2a6cf0", "text_color": "#ffffff"}}
+state:     "background": "#f4f4f6"
+block:     "style": "primary", "look": {"radius": 12},
+           "placeholder": "", "options": [], "value": "",
+           "disabled": false, "hidden": false, "required": false
+```
+
+Style fields (all optional inside a style or a `look`): `fill`, `text_color`,
+`border_color` (hex colours `#rgb` or `#rrggbb`), `border_width`, `radius`,
+`padding` (whole numbers, 0 or more), `font_size` (whole number above 0),
+`font_weight` (`normal` or `bold`), `align` (`left`, `center`, `right`),
+`opacity` (number from 0 to 1), `shadow` (true or false).
+
+New block types (added to the Round 1 eight): `textarea`, `checkbox`, `radio`,
+`toggle`, `select`, `slider`, `tabs`, `card`, `table`, `modal`, `icon`,
+`divider`, `link`, `badge`, `avatar`.
+
+### R6. Detailed specs: a spec sheet's worth of style per block
+
+- (a) A style (the table entries and a block's `look`) may only use the style
+  fields above, with the stated value types; `validate` reports each bad value
+  with its path, e.g. `states[0].blocks[1].look.opacity: must be a number from 0 to 1`.
+- (b) Every block has a *resolved style* with all eleven fields. It is built from
+  the built-in defaults for the block's type, then the named style, then the
+  block's own `look`, later layers winning. A block with no style fields still
+  resolves, so a Round 1 file exports fully.
+- (c) `export_spec(doc, "coder")` lists, for every block, the full resolved
+  style, its style name (if any) and its properties (placeholder, options,
+  value, disabled, hidden, required), and the screen's background.
+- (d) `export_spec(doc, "image")` describes every block's resolved style in
+  visual words (colours, text size and weight, corner rounding, border,
+  shadow, alignment, opacity) and the screen background. Still no event names,
+  guards or info keys.
+- (e) Both outputs stay deterministic (R2(c)).
+- (f) `missing-style` (warning): a block with neither a named style nor a `look`
+  has no deliberate design choice.
+
+### R7. Blocks can share a style
+
+- (a) `styles` maps a style name to a style. A block's `style` names one (empty
+  or missing means none). `look` overrides single fields for that block only.
+- (b) Ops: `add_style`, `update_style` (replaces the style's fields),
+  `delete_style`, `set_style` (marks several blocks of one screen at once).
+  Changing a style changes every block that uses it. `delete_style` keeps the
+  look of its blocks by copying the style's fields into their `look` first.
+- (c) `unknown-style` (error): a block names a style that does not exist.
+  `unused-style` (warning): a style no block uses.
+- (d) The coder spec has a `Styles` section listing each style, its fields and
+  the blocks using it, and each block row shows its style name. The image spec
+  says which blocks must look identical.
+- (e) The editor has a style picker per block and a panel to create, edit and
+  delete styles.
+
+### R8. More UI options
+
+- (a) The new block types above are valid, offered in the editor palette, drawn
+  by the editor, described in the authoring guide and in the image spec.
+- (b) The new block properties are validated, editable through `update_block`,
+  shown in the inspector and exported (R6(c)).
+- (c) Screens may have a `background` colour (`update_state`). The canvas size
+  may be set from a device preset with `update_wireframe(preset=...)`: `phone`
+  390x844, `tablet` 820x1180, `desktop` 1280x800. An unknown preset is an error.
+- (d) Ops: `duplicate_block` (copy placed 20 px down and right, new id, same
+  style), `reorder_block` (`front`, `back`, `forward`, `backward`; the order in
+  the file is the stacking order), `move_blocks` (move several by dx, dy).
+- (e) Editor: snap-to-grid (grid size field), resize from all four corners,
+  shift-click multi-select and drag together, duplicate and z-order buttons.
+- (f) Checker changes: `hidden` blocks are ignored by `overlap`; a `card` or
+  `modal` may fully hold other blocks like a `container`; `link` must raise an
+  event like a `button`; `card`, `modal` and `divider` need no info keys.
+
+### R9. Navigate the wireframe like a real UI (Play mode)
+
+- (a) `play.step(doc, state, event, choice=None)` follows a transition and
+  returns `{"status": "moved", "state", "transition"}`.
+- (b) If more than one transition leaves the screen on that event, it returns
+  `{"status": "choose", "options": [...]}` listing them, unless `choice` names
+  one of them (a transition id); a bad `choice` is an error.
+- (c) If no transition handles the event, it returns `{"status": "stuck"}`
+  with a message; it never raises for a design problem.
+- (d) `play.screen(doc, state)` lists the events the user can raise on a screen:
+  block events plus `sys:` events (the "system" buttons), and whether it is final.
+- (e) `python -m wireframe walk FILE [EVENT[=TRANSITION_ID] ...]` starts at the
+  initial screen, applies each event in order, prints each move, and exits 1
+  if an event is stuck or needs a choice. With no events it prints the screen
+  and its available events.
+- (f) `POST /api/play` with `{"state": ..., "event": ...[, "choice": ...]}`
+  runs `step` (an empty event just describes the screen); `GET /api/resolved`
+  returns every block's resolved style so the browser draws what the exports say.
+- (g) Browser: a Play button hides all editing handles and draws blocks with
+  their styles; clicking a block that raises an event follows the flow, with
+  Back, Restart, a path log, a chooser for ambiguous events, buttons for
+  `sys:` events, and a notice on reaching a final screen. Play mode never
+  changes the wireframe file.
+
 ## Out of scope for this round
 
 - Evaluating guards, simulating user sessions, or checking data values.
@@ -168,7 +281,9 @@ message. Flow findings:
 | --- | --- |
 | `wireframe/model.py` | data model, `validate`, `load`, `save`, `new_wireframe` |
 | `wireframe/ops.py` | headless edit functions and `apply_op` |
-| `wireframe/checks.py` | `check` (R4, R5) |
+| `wireframe/checks.py` | `check` (R4, R5, R6-R8 findings) |
+| `wireframe/styles.py` | style fields, defaults, `resolve_style` (R6, R7) |
+| `wireframe/play.py` | `screen`, `step` (R9) |
 | `wireframe/spec.py` | `export_spec`, `authoring_guide` (R2, R3) |
 | `wireframe/example.py` | a valid example wireframe |
 | `wireframe/cli.py`, `wireframe/__main__.py` | command line |
