@@ -12,7 +12,8 @@ import json
 
 from .checks import RULES
 from .example import example_wireframe
-from .model import BLOCK_TYPES, WireframeError
+from .model import BLOCK_TYPES, DEVICE_PRESETS, WireframeError
+from .styles import STYLE_FIELDS, resolve_style
 
 MODES = ("coder", "image")
 
@@ -63,6 +64,55 @@ def _cell(text):
     return " ".join(str(text).split()).replace("|", "\\|")
 
 
+# ---- styles in the exports (R6, R7) ----------------------------------------
+
+_STYLE_COLUMNS = list(STYLE_FIELDS)          # fixed order -> deterministic output
+DEFAULT_BACKGROUND = "#ffffff"
+
+
+def _background(state):
+    return state.get("background") or DEFAULT_BACKGROUND
+
+
+def _properties(block):
+    """The optional block properties that are set, as short `name=value` words."""
+    out = []
+    for key in ("placeholder", "value"):
+        if block.get(key):
+            out.append(f'{key}="{block[key]}"')
+    if block.get("options"):
+        out.append("options=" + " / ".join(block["options"]))
+    for key in ("disabled", "hidden", "required"):
+        if block.get(key):
+            out.append(key)
+    return ", ".join(out)
+
+
+def _style_users(doc):
+    """style name -> list of (state, block), in document order."""
+    users = {}
+    for s in doc["states"]:
+        for b in s["blocks"]:
+            if b.get("style"):
+                users.setdefault(b["style"], []).append((s, b))
+    return users
+
+
+def _look_words(r):
+    """A resolved style in plain visual words, for an image generator."""
+    parts = [f"fill {r['fill']}", f"text {r['text_color']} {r['font_size']}px {r['font_weight']}",
+             f"{r['align']}-aligned text"]
+    parts.append(f"{r['border_width']}px {r['border_color']} border" if r["border_width"] else "no border")
+    parts.append(f"corners rounded {r['radius']}px" if r["radius"] else "square corners")
+    if r["padding"]:
+        parts.append(f"{r['padding']}px inner padding")
+    if r["shadow"]:
+        parts.append("soft drop shadow")
+    if r["opacity"] < 1:
+        parts.append(f"{round(r['opacity'] * 100)}% opacity")
+    return ", ".join(parts)
+
+
 # ---- R2 --------------------------------------------------------------------
 
 def _coder_spec(doc):
@@ -73,6 +123,8 @@ def _coder_spec(doc):
         f"Each screen is {w} x {h} px. The first screen is `{doc['initial']}`.",
         "Positions are the top-left corner of each block, in pixels.",
         "A block's `event` is what it raises when the user uses it; transitions below say what happens next.",
+        "Every block also has a resolved style (built-in default for its type, then its named style, "
+        "then its own overrides); see the table under each screen and the Styles section.",
         "",
     ]
     for s in doc["states"]:
@@ -88,6 +140,27 @@ def _coder_spec(doc):
                 f"`{b['id']}`", b["type"], str(b["x"]), str(b["y"]), str(b["w"]), str(b["h"]),
                 _cell(b["label"]), _cell(", ".join(b["info"])), _cell(b["event"]), _cell(b["note"]),
             ]) + " |")
+        lines.append("")
+        lines += [f"Background: `{_background(s)}`", "",
+                  "Resolved style and properties of each block:", "",
+                  "| id | style | " + " | ".join(_STYLE_COLUMNS) + " | properties |",
+                  "| --- | --- | " + " | ".join("---" for _ in _STYLE_COLUMNS) + " | --- |"]
+        for b in _sorted_blocks(s):
+            r = resolve_style(doc, b)
+            cells = [str(r[f]).lower() if isinstance(r[f], bool) else str(r[f]) for f in _STYLE_COLUMNS]
+            lines.append("| " + " | ".join([f"`{b['id']}`", _cell(b.get("style") or "-")] + cells
+                                           + [_cell(_properties(b) or "-")]) + " |")
+        lines.append("")
+    lines += ["## Styles", ""]
+    named = doc.get("styles", {})
+    if not named:
+        lines += ["(none)", ""]
+    users = _style_users(doc)
+    for name in sorted(named):
+        fields = ", ".join(f"{k}={named[name][k]}" for k in _STYLE_COLUMNS if k in named[name]) or "(defaults only)"
+        used = ", ".join(f"`{s['id']}.{b['id']}`" for s, b in users.get(name, [])) or "(nobody)"
+        lines.append(f"- **{name}**: {fields}. Used by: {used}")
+    if named:
         lines.append("")
     lines += ["## Transitions", ""]
     if not doc["transitions"]:
@@ -119,14 +192,38 @@ def _image_spec(doc):
         "",
     ]
     for i, s in enumerate(doc["states"], 1):
-        lines += [f"## Screen {i}: {s['title']}", ""]
-        if not s["blocks"]:
+        lines += [f"## Screen {i}: {s['title']}", "", f"Screen background {_background(s)}.", ""]
+        shown = [b for b in _sorted_blocks(s) if not b.get("hidden")]
+        if not shown:
             lines += ["An empty screen.", ""]
             continue
-        for b in _sorted_blocks(s):
+        for b in shown:
             label = f' labelled "{b["label"]}"' if b["label"].strip() else ""
             size = f"about {round(100 * b['w'] / w)}% wide and {round(100 * b['h'] / h)}% tall"
-            lines.append(f"- {_place(b, w, h)}: {_VISUAL_KIND[b['type']]}{label}, {size}")
+            extra = ""
+            if b.get("placeholder"):
+                extra += f', placeholder text "{b["placeholder"]}"'
+            if b.get("options"):
+                extra += ", choices: " + ", ".join(b["options"])
+            if b.get("value"):
+                extra += f', showing "{b["value"]}"'
+            if b.get("disabled"):
+                extra += ", greyed out"
+            look = _look_words(resolve_style(doc, b))
+            lines.append(f"- {_place(b, w, h)}: {_VISUAL_KIND[b['type']]}{label}, {size}{extra}; {look}")
+        lines.append("")
+    drawn = {name: [(s, b) for s, b in users if not b.get("hidden")]
+             for name, users in _style_users(doc).items()}
+    groups = [(n, u) for n, u in sorted(drawn.items()) if len(u) > 1]
+    if groups:
+        lines += ["## Blocks that must look identical", ""]
+        for name, users in groups:
+            names = []
+            for s, b in users:
+                n = doc["states"].index(s) + 1
+                what = f'"{b["label"]}" {_VISUAL_KIND[b["type"]]}' if b["label"].strip() else _VISUAL_KIND[b["type"]]
+                names.append(f"{what} on screen {n}")
+            lines.append("- " + "; ".join(names))
         lines.append("")
     return "\n".join(lines)
 
@@ -147,6 +244,7 @@ def authoring_guide():
     types = "\n".join(f"- `{t}`: {TYPE_MEANING[t]}" for t in BLOCK_TYPES)
     rules = "\n".join(f"- `{code}` ({sev}): {text}" for code, (sev, text) in RULES.items())
     example = json.dumps(example_wireframe(), indent=2)
+    sizes = {k: f"{w}x{h}" for k, (w, h) in DEVICE_PRESETS.items()}
     return f"""# How to write a wireframe
 
 A wireframe is one JSON object describing an app as a **state machine**: each
@@ -166,7 +264,25 @@ which user action moves the app from one screen to another.
 - `transitions`: a list. Each has `id`, `source` and `target` (state ids), `event`
   and `guard` (a condition in words, or an empty string).
 
-Every field is required. Unknown fields are rejected, so spell them exactly.
+The fields above are required. Unknown fields are rejected, so spell them exactly.
+
+## Optional design fields
+
+All of these may be left out; leave them out unless you mean them.
+
+- Document: `styles`, an object of style name -> style, for design shared by many blocks.
+- Block: `style` (the name of one of `styles`), `look` (a style that overrides single
+  fields for this block only), `placeholder`, `value` (text), `options` (a list of
+  non-empty strings, for `select`, `tabs`, `radio`), and the true/false flags
+  `disabled`, `hidden` and `required`.
+- State: `background`, a colour.
+- A *style* may use only these fields: `fill`, `text_color`, `border_color` (hex colours
+  such as `#fff` or `#2a6cf0`), `border_width`, `radius`, `padding` (whole numbers, 0 or
+  more), `font_size` (whole number above 0), `font_weight` (`normal` or `bold`), `align`
+  (`left`, `center` or `right`), `opacity` (0 to 1) and `shadow` (true or false).
+- A block's final look is the default for its type, then its named style, then its `look`.
+  Give blocks that should look the same one shared style rather than copying fields.
+- Screen sizes: phone {sizes['phone']}, tablet {sizes['tablet']}, desktop {sizes['desktop']}.
 
 ## Block types
 

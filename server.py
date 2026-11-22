@@ -76,10 +76,25 @@ def make_server(path, host="127.0.0.1", port=8000, static_dir=None, quiet=False)
             host = self.headers.get("Host", "")
             return host.rsplit(":", 1)[0] in LOCAL_HOSTS if ":" in host else host in LOCAL_HOSTS
 
+        def drain_body(self):
+            """Read and discard an unwanted request body (up to a cap) before replying.
+            Replying while the client is still sending makes Windows reset the connection."""
+            try:
+                remaining = min(int(self.headers.get("Content-Length", "0")), 5 * MAX_BODY)
+            except ValueError:
+                remaining = 0
+            while remaining > 0:
+                chunk = self.rfile.read(min(65536, remaining))
+                if not chunk:
+                    break
+                remaining -= len(chunk)
+            self.close_connection = True
+
         def read_json_body(self):
             """Return the parsed body, or None after sending an error response."""
             ctype = self.headers.get("Content-Type", "").split(";")[0].strip().lower()
             if ctype != "application/json":
+                self.drain_body()
                 self.send_errors(415, ["send the body with Content-Type: application/json"])
                 return None
             try:
