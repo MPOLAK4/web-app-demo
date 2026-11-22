@@ -32,7 +32,31 @@ aside, #right section { background: #fff; border: 1px solid #ddd; border-radius:
 .block.t-image { background: repeating-linear-gradient(45deg, #eee, #eee 6px, #f8f8f8 6px, #f8f8f8 12px); }
 .block.t-container { background: rgba(120, 140, 200, .08); border-style: dotted; }
 .block.t-heading { font-weight: bold; font-size: 15px; background: #fff; }
-.handle { position: absolute; right: 0; bottom: 0; width: 12px; height: 12px; background: #2a6cf0; cursor: nwse-resize; }
+.block .line { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.block.is-hidden { border-style: dashed; }
+.block.t-divider { min-height: 2px; padding: 0; }
+.block.t-badge, .block.t-avatar { border-radius: 999px; text-align: center; }
+.block.t-modal { box-shadow: 0 6px 18px rgba(0,0,0,.35); }
+.block.play { cursor: default; }
+.block.play.live { cursor: pointer; outline: 1px dashed #2a6cf0; }
+.block.play.live:hover { outline: 2px solid #2a6cf0; }
+.block.play.is-disabled { cursor: not-allowed; }
+.handle { position: absolute; width: 10px; height: 10px; background: #2a6cf0; display: none; }
+.block.selected .handle { display: block; }
+.handle.nw { left: 0; top: 0; cursor: nwse-resize; }
+.handle.ne { right: 0; top: 0; cursor: nesw-resize; }
+.handle.sw { left: 0; bottom: 0; cursor: nesw-resize; }
+.handle.se { right: 0; bottom: 0; cursor: nwse-resize; }
+#block-tools { margin-bottom: 8px; display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+h2.gap { margin-top: 14px; }
+.style-row { border-top: 1px solid #eee; padding: 4px 0; }
+.style-row input { width: 100%; }
+#add-style-form { display: flex; flex-direction: column; gap: 3px; }
+label.inline { display: inline-block; margin-right: 8px; }
+.notice { background: #e6f6e6; border-left: 4px solid #2e7d32; padding: 4px 8px; margin-bottom: 6px; }
+#play-chooser button, #play-system button { display: block; margin: 3px 0; }
+#play-log { padding-left: 20px; margin: 8px 0 0; font-size: 12px; max-height: 220px; overflow: auto; }
+[hidden] { display: none !important; }
 
 #inspector label, #transitions label { display: block; margin-bottom: 6px; }
 #inspector input, #inspector select, #inspector textarea { width: 100%; }

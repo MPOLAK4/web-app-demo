@@ -11,7 +11,11 @@
     <h1>Wireframe editor</h1>
     <label>Name <input id="doc-name"></label>
     <label>Canvas <input id="doc-width" type="number" min="1"> &times; <input id="doc-height" type="number" min="1"></label>
+    <label>Device <select id="doc-preset"></select></label>
+    <label>Screen background <input id="state-bg" size="8" placeholder="#ffffff"></label>
+    <label>Grid <input id="grid-size" type="number" min="1" value="1" title="Snap size in pixels; 1 means no snapping"></label>
     <span class="spacer"></span>
+    <button id="btn-play">Play</button>
     <button id="btn-spec-coder">Spec for coder</button>
     <button id="btn-spec-image">Spec for image AI</button>
     <button id="btn-guide">AI guide</button>
@@ -28,17 +32,35 @@
         <input id="new-state-title" placeholder="New screen title" required>
         <button>Add</button>
       </form>
+      <h2 class="gap">Styles</h2>
+      <p class="hint">Fields as name=value, e.g. fill=#2a6cf0, radius=8</p>
+      <div id="style-list"></div>
+      <form id="add-style-form">
+        <input id="new-style-name" placeholder="Style name" required>
+        <input id="new-style-fields" placeholder="fill=#2a6cf0, radius=8">
+        <button>Add</button>
+      </form>
     </aside>
 
     <section id="center">
       <div id="palette"></div>
+      <div id="block-tools"></div>
       <div id="canvas-wrap"><div id="canvas"></div></div>
     </section>
 
     <aside id="right">
-      <section>
+      <section id="play-panel" hidden>
+        <h2>Play</h2>
+        <p class="hint">Click blocks that do something. Nothing you do here changes the file.</p>
+        <div id="play-final" class="notice" hidden></div>
+        <div class="row"><button id="play-back">Back</button><button id="play-restart">Restart</button></div>
+        <div id="play-chooser"></div>
+        <div id="play-system"></div>
+        <ol id="play-log"></ol>
+      </section>
+      <section id="edit-panels">
         <h2>Selected block</h2>
-        <div id="inspector"><p class="hint">Click a block to edit it.</p></div>
+        <div id="inspector"><p class="hint">Click a block to edit it. Shift-click to select several.</p></div>
       </section>
       <section>
         <h2>Transitions for this screen</h2>
