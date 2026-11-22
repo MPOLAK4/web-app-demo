@@ -95,3 +95,12 @@ would not put on a public web page. These repositories are public."
   not a bare `python server.py &`.
 - On Windows, deleting or replacing a file another process may touch can raise
   `PermissionError` for a moment; retry briefly (see `serverctl.remove_state`).
+- The repo folder `examples/` is built output (`python -m wireframe examples --build examples`).
+  Rebuild and commit it whenever a coder/image export, `checks.py`, `render.py`, `viewer.py`,
+  `viewer_template.html`, `play.py`, or `wireframe/examples.py` changes; a test fails if it is
+  stale. Never edit files in `examples/` by hand. Every example must be valid, and every example
+  except `flawed` must have zero findings from `checks.check`.
+- `wireframe/spec.py` must not import `examples` at module level (`examples.py` imports `spec`);
+  `authoring_guide()` imports it inside the function.
+- The default iteration count lives only in `spec.DEFAULT_ITERATIONS`; never write the number
+  into guide or export text by hand. R15 is guidance only: no `iterations` field, no counting.
