@@ -41,3 +41,8 @@ R15. Review the spec sheet for UI creation; AI should consider or ask for how ma
 ## Round 6 requirements
 
 R16. Cleanup / refactor: a general review of the codebase (code, tests, docs), cleaning up and refactoring where it helps, without changing what the application does.
+
+
+## Round 7 requirements
+
+R17. Changes R12: the idle timeout after which the server shuts itself down is 10 minutes (600 seconds), not 5 minutes. Everything else in R12 stays as it is.
