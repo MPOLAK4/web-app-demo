@@ -36,7 +36,7 @@ panel (a key with no sample gets an automatic one, `cart.total` -> "Cart total")
 chosen mode. Your stored text is never changed by the switch.
 
 Round 4 adds: `python -m wireframe start` / `status` / `stop` run the editor server in
-the background and it stops itself after 300 seconds without a request (change with
+the background and it stops itself after 600 seconds without a request (change with
 `--idle-timeout`); and a clickable `viewer.html` (`python -m wireframe viewer my.json
 --out viewer.html`, or "Save viewer" in the editor) that needs no server.
 

@@ -30,7 +30,7 @@ class PingAndShutdownTests(ServerTestCase):
         status, body = self.jcall("GET", "/api/ping")
         self.assertEqual(status, 200)
         self.assertEqual(body["ok"], True)
-        self.assertEqual(body["idle_timeout"], 300)
+        self.assertEqual(body["idle_timeout"], 600)
 
     def test_R12_ping_changes_nothing(self):
         """R12(b): no wireframe file is created or written by a ping."""
@@ -82,14 +82,14 @@ class IdleTimeoutTests(unittest.TestCase):
         self.addCleanup(thread.join, 5)
         return httpd, thread
 
-    def test_R12_default_idle_timeout_is_five_minutes(self):
-        """R12(a): the number the requirement asks for."""
+    def test_R12_R17_default_idle_timeout_is_ten_minutes(self):
+        """R12(a), R17: the number the requirements ask for (R17 changed 5 minutes to 10)."""
         import os
         import tempfile
         with tempfile.TemporaryDirectory() as tmp:
             httpd = server.make_server(os.path.join(tmp, "w.json"), port=0, quiet=True)
             self.addCleanup(httpd.server_close)
-            self.assertEqual(httpd.idle_timeout, 300)
+            self.assertEqual(httpd.idle_timeout, 600)
 
     def test_R12_idle_timeout_must_be_positive(self):
         """R12(a): zero, negative or non-number values are refused."""

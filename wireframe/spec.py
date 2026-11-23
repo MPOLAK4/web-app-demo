@@ -406,7 +406,7 @@ Use those first. Only start the editor server when a person needs the browser ed
 - `python -m wireframe stop` shuts it down. **Always stop a server you started.**
 - `python -m wireframe status` says whether one is running.
 
-A server also stops itself after 5 minutes with no requests, but do not rely on that.
+A server also stops itself after 10 minutes with no requests, but do not rely on that.
 
 ## Complete example
 

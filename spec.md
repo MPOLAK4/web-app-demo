@@ -561,6 +561,23 @@ What the review found:
   anything, a command that saves numbered copies; an example picker in the browser editor
   (an example is opened with `new --example NAME` or `GET /api/example`, or its `viewer.html`).
 
+## Round 7: longer idle timeout (R17, changes R12)
+
+R17 changes R12. Only the number changes: the idle timeout is **10 minutes (600
+seconds)**, not 5 minutes (300 seconds). Where Round 4 above says 5 minutes or 300
+seconds, Round 7 replaces it. Nothing else in R12 or R13 changes.
+
+- (a) `DEFAULT_IDLE_TIMEOUT` is 600, still defined once in `wireframe/serverctl.py`
+  (R16(e)). `make_server(..., idle_timeout=600)`, `server.py --idle-timeout` and
+  `python -m wireframe start --idle-timeout` all default to 600 seconds.
+- (b) `GET /api/ping` reports `{"ok": true, "idle_timeout": 600}` for a server started
+  with the default.
+- (c) `--idle-timeout S` still overrides the default, and must still be greater than 0.
+- (d) The text an AI is given (`authoring_guide`), the README and the help text say
+  10 minutes, not 5.
+- (e) The editor heartbeat (one `GET /api/ping` a minute) is unchanged; it stays well
+  inside the new timeout.
+
 ## Files
 
 | Path | Purpose |

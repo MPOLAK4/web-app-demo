@@ -20,7 +20,7 @@ import urllib.request
 from .model import WireframeError
 
 DEFAULT_STATE_FILE = ".wireframe-server.json"
-DEFAULT_IDLE_TIMEOUT = 300
+DEFAULT_IDLE_TIMEOUT = 600
 HERE = os.path.dirname(os.path.abspath(__file__))
 SERVER_PY = os.path.join(os.path.dirname(HERE), "server.py")
 

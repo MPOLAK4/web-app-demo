@@ -25,7 +25,7 @@ API (JSON unless noted):
     GET  /api/example?name=N     one example with its expected output (R14); read-only
 Everything else is a static file from static/.
 
-Lifetime (R12): if no request arrives for --idle-timeout seconds (default 300, five
+Lifetime (R12): if no request arrives for --idle-timeout seconds (default 600, ten
 minutes) the server stops itself. `python -m wireframe start|stop|status` run it in
 the background and end it again.
 
@@ -45,7 +45,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlsplit
 
 from wireframe import checks, data, examples, model, ops, play, render, serverctl, spec, styles, viewer
-from wireframe.serverctl import DEFAULT_IDLE_TIMEOUT  # seconds: five minutes (R12); defined once, there
+from wireframe.serverctl import DEFAULT_IDLE_TIMEOUT  # seconds: ten minutes (R12, R17); defined once, there
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MAX_BODY = 1_000_000  # bytes; a wireframe is a few KB, so this is generous
@@ -394,7 +394,7 @@ def main():
     parser.add_argument("file", nargs="?", default="wireframe.json", help="wireframe JSON file")
     parser.add_argument("--port", type=int, default=8000, help="0 means any free port")
     parser.add_argument("--idle-timeout", type=float, default=DEFAULT_IDLE_TIMEOUT, metavar="SECONDS",
-                        help="stop after this many seconds without a request (default 300)")
+                        help="stop after this many seconds without a request (default 600)")
     parser.add_argument("--state-file", help="write {pid, port, url, file} here while running (used by `start`)")
     args = parser.parse_args()
     if args.idle_timeout <= 0:

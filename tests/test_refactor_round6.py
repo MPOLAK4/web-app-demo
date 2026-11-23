@@ -57,7 +57,7 @@ class SingleDefinitionTests(unittest.TestCase):
 
     def test_R16_e_the_idle_timeout_default_is_defined_once(self):
         """R16(e)."""
-        self.assertEqual(serverctl.DEFAULT_IDLE_TIMEOUT, 300)
+        self.assertEqual(serverctl.DEFAULT_IDLE_TIMEOUT, 600)
         self.assertEqual(server.DEFAULT_IDLE_TIMEOUT, serverctl.DEFAULT_IDLE_TIMEOUT)
         self.assertNotIn("DEFAULT_IDLE_TIMEOUT =", source_of("server.py"))
 

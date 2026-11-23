@@ -116,7 +116,7 @@ def _build_parser():
     p.add_argument("file", nargs="?", default="wireframe.json")
     p.add_argument("--port", type=int, default=0, help="0 (default) picks any free port")
     p.add_argument("--idle-timeout", type=float, default=serverctl.DEFAULT_IDLE_TIMEOUT, metavar="SECONDS",
-                   help="the server stops itself after this long without a request (default 300)")
+                   help="the server stops itself after this long without a request (default 600)")
     p.add_argument("--state-file", default=serverctl.DEFAULT_STATE_FILE,
                    help=f"where the server records itself (default {serverctl.DEFAULT_STATE_FILE})")
     for name, text in (("stop", "stop the background server (R12)"),
